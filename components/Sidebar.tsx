@@ -18,6 +18,8 @@ export default function Sidebar() {
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
     { href: '/clientes', label: 'Clientes', icon: '👥' },
     { href: '/processos', label: 'Processos', icon: '📋' },
+    { href: '/tarefas', label: 'Tarefas', icon: '✓' },
+    { href: '/calendario', label: 'Calendário', icon: '📅' },
     { href: '/usuarios', label: 'Usuários', icon: '👤' },
   ]
 
