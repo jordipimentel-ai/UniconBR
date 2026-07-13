@@ -152,6 +152,9 @@ export default function TarefasPage() {
         tipo_processo_id: '',
         prazo: '',
         descricao: '',
+        prioridade: 'media',
+        status_tarefa: 'pendente',
+        user_id: '',
       })
     }
   }
