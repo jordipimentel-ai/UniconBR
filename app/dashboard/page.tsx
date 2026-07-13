@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
-import CalendarCompact from '@/components/CalendarCompact'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -160,11 +159,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Calendário Compacto */}
-        <div>
-          <h3 className="text-xl font-bold text-slate-900 mb-6">Calendário</h3>
-          <CalendarCompact />
-        </div>
         </main>
       </div>
     </div>
