@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { listUsers, deactivateUser, activateUser, deleteUser } from '@/lib/user-management'
 import Sidebar from '@/components/Sidebar'
 import NovoUsuarioModal from '@/components/NovoUsuarioModal'
+import EditarUsuarioModal from '@/components/EditarUsuarioModal'
 
 interface User {
   id: string
@@ -14,6 +15,7 @@ interface User {
   role: 'admin' | 'colaborador'
   ativo: boolean
   criado_em: string
+  avatar_url?: string
 }
 
 export default function UsuariosPage() {
@@ -23,6 +25,8 @@ export default function UsuariosPage() {
   const [isAdminUser, setIsAdminUser] = useState(false)
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -31,7 +35,6 @@ export default function UsuariosPage() {
       try {
         setLoading(true)
 
-        // Verificar autenticação
         const { data: { user }, error: authError } = await supabase.auth.getUser()
         if (authError || !user) {
           console.log('Erro de auth:', authError)
@@ -39,16 +42,11 @@ export default function UsuariosPage() {
           return
         }
 
-        console.log('Usuário autenticado:', user.id)
-
-        // Verificar se é admin - consultar diretamente
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('role')
           .eq('id', user.id)
           .single()
-
-        console.log('Dados do usuário:', userData, 'Erro:', userError)
 
         if (userError || userData?.role !== 'admin') {
           console.log('Usuário não é admin')
@@ -59,7 +57,6 @@ export default function UsuariosPage() {
 
         setIsAdminUser(true)
 
-        // Carregar usuários
         const { data, error: listError } = await listUsers()
         if (listError) {
           console.log('Erro ao listar usuários:', listError)
@@ -132,8 +129,25 @@ export default function UsuariosPage() {
   }
 
   function handleUserCreated(newUser: User) {
-    setUsuarios([newUser, ...usuarios])
+    setUsuarios([...usuarios, newUser].sort((a, b) =>
+      new Date(a.criado_em).getTime() - new Date(b.criado_em).getTime()
+    ))
     setShowModal(false)
+  }
+
+  function handleUserUpdated(updatedUser: User) {
+    setUsuarios(usuarios.map((u) => (u.id === updatedUser.id ? updatedUser : u)))
+    setShowEditModal(false)
+    setEditingUser(null)
+  }
+
+  function getInitials(nome: string): string {
+    return nome
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
 
   if (loading) {
@@ -205,7 +219,7 @@ export default function UsuariosPage() {
                 <tr>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Nome</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Role</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Função</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Criado em</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Ações</th>
@@ -222,7 +236,20 @@ export default function UsuariosPage() {
                   filteredUsuarios.map((usuario) => (
                     <tr key={usuario.id} className="border-b border-gray-200 hover:bg-gray-50">
                       <td className="px-6 py-4">
-                        <p className="font-medium text-gray-900">{usuario.nome_completo}</p>
+                        <div className="flex items-center gap-3">
+                          {usuario.avatar_url ? (
+                            <img
+                              src={usuario.avatar_url}
+                              alt={usuario.nome_completo}
+                              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold text-sm flex-shrink-0">
+                              {getInitials(usuario.nome_completo)}
+                            </div>
+                          )}
+                          <p className="font-medium text-gray-900">{usuario.nome_completo}</p>
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-gray-600">{usuario.email}</td>
                       <td className="px-6 py-4">
@@ -250,18 +277,28 @@ export default function UsuariosPage() {
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {new Date(usuario.criado_em).toLocaleDateString('pt-BR')}
                       </td>
-                      <td className="px-6 py-4 text-sm">
+                      <td className="px-6 py-4 text-sm space-x-2">
+                        <button
+                          onClick={() => {
+                            setEditingUser(usuario)
+                            setShowEditModal(true)
+                          }}
+                          className="text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Editar
+                        </button>
+
                         {usuario.ativo ? (
                           <button
                             onClick={() => handleDeactivate(usuario.id)}
-                            className="text-orange-600 hover:text-orange-700 font-medium mr-4"
+                            className="text-orange-600 hover:text-orange-700 font-medium"
                           >
                             Desativar
                           </button>
                         ) : (
                           <button
                             onClick={() => handleActivate(usuario.id)}
-                            className="text-green-600 hover:text-green-700 font-medium mr-4"
+                            className="text-green-600 hover:text-green-700 font-medium"
                           >
                             Ativar
                           </button>
@@ -300,11 +337,23 @@ export default function UsuariosPage() {
         </main>
       </div>
 
-      {/* Modal */}
+      {/* Modal Novo */}
       {showModal && (
         <NovoUsuarioModal
           onClose={() => setShowModal(false)}
           onUserCreated={handleUserCreated}
+        />
+      )}
+
+      {/* Modal Editar */}
+      {showEditModal && editingUser && (
+        <EditarUsuarioModal
+          usuario={editingUser}
+          onClose={() => {
+            setShowEditModal(false)
+            setEditingUser(null)
+          }}
+          onUserUpdated={handleUserUpdated}
         />
       )}
     </div>

@@ -56,12 +56,42 @@ export async function listUsers() {
     const { data, error } = await supabase
       .from('users')
       .select('*')
-      .order('criado_em', { ascending: false })
+      .order('criado_em', { ascending: true })
 
     if (error) throw error
     return { data, error: null }
   } catch (error: any) {
     return { data: null, error: error.message }
+  }
+}
+
+// Listar permissões
+export async function listPermissions() {
+  try {
+    const { data, error } = await supabase
+      .from('permissoes')
+      .select('*')
+      .order('nome', { ascending: true })
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error: any) {
+    return { data: null, error: error.message }
+  }
+}
+
+// Obter permissões de um usuário
+export async function getUserPermissions(userId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('user_permissoes')
+      .select('permissao_id')
+      .eq('user_id', userId)
+
+    if (error) throw error
+    return { data: data?.map(p => p.permissao_id) || [], error: null }
+  } catch (error: any) {
+    return { data: [], error: error.message }
   }
 }
 
