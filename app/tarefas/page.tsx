@@ -46,6 +46,16 @@ const STATUSES: ProcessStatus[] = [
   'Cancelado',
 ]
 
+const INITIAL_FORM_DATA = {
+  cliente_id: '',
+  tipo_processo_id: '',
+  prazo: '',
+  descricao: '',
+  prioridade: 'media' as const,
+  status_tarefa: 'pendente' as const,
+  user_id: '',
+}
+
 export default function TarefasPage() {
   const router = useRouter()
   const [processos, setProcessos] = useState<Processo[]>([])
@@ -56,17 +66,7 @@ export default function TarefasPage() {
   const [usuarios, setUsuarios] = useState<any[]>([])
   const [showModal, setShowModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const initialFormData = {
-    cliente_id: '',
-    tipo_processo_id: '',
-    prazo: '',
-    descricao: '',
-    prioridade: 'media' as const,
-    status_tarefa: 'pendente' as const,
-    user_id: '',
-  }
-
-  const [formData, setFormData] = useState(initialFormData)
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA)
 
   useEffect(() => {
     async function loadData() {
@@ -149,7 +149,7 @@ export default function TarefasPage() {
     if (data) {
       setProcessos([data, ...processos])
       setShowModal(false)
-      setFormData(initialFormData)
+      setFormData(INITIAL_FORM_DATA)
     }
   }
 
