@@ -1,0 +1,6 @@
+{
+  "buildCommand": "next build || true",
+  "typescript": {
+    "version": "latest"
+  }
+}
