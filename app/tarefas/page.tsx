@@ -56,15 +56,17 @@ export default function TarefasPage() {
   const [usuarios, setUsuarios] = useState<any[]>([])
   const [showModal, setShowModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     cliente_id: '',
     tipo_processo_id: '',
     prazo: '',
     descricao: '',
-    prioridade: 'media' as 'baixa' | 'media' | 'alta',
-    status_tarefa: 'pendente' as 'pendente' | 'em_andamento' | 'concluida',
+    prioridade: 'media' as const,
+    status_tarefa: 'pendente' as const,
     user_id: '',
-  })
+  }
+
+  const [formData, setFormData] = useState(initialFormData)
 
   useEffect(() => {
     async function loadData() {
@@ -147,15 +149,7 @@ export default function TarefasPage() {
     if (data) {
       setProcessos([data, ...processos])
       setShowModal(false)
-      setFormData({
-        cliente_id: '',
-        tipo_processo_id: '',
-        prazo: '',
-        descricao: '',
-        prioridade: 'media',
-        status_tarefa: 'pendente',
-        user_id: '',
-      })
+      setFormData(initialFormData)
     }
   }
 
