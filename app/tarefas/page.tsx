@@ -155,7 +155,7 @@ export default function TarefasPage() {
         prioridade: 'media',
         status_tarefa: 'pendente',
         user_id: '',
-      })
+      } as any)
     }
   }
 
