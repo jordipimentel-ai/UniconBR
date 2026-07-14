@@ -20,6 +20,7 @@ export default function Sidebar() {
     { href: '/processos', label: 'Processos', icon: '📋' },
     { href: '/tarefas', label: 'Tarefas', icon: '✓' },
     { href: '/calendario', label: 'Calendário', icon: '📅' },
+    { href: '/relatorios', label: 'Relatórios', icon: '📈' },
     { href: '/usuarios', label: 'Usuários', icon: '👤' },
   ]
 

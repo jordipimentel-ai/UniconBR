@@ -22,6 +22,9 @@ export default function NovoUsuarioModal({ onClose, onUserCreated }: NovoUsuario
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [loadingPermissions, setLoadingPermissions] = useState(true)
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set())
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [formData, setFormData] = useState({
     nome_completo: '',
     email: '',
@@ -103,6 +106,20 @@ export default function NovoUsuarioModal({ onClose, onUserCreated }: NovoUsuario
         return
       }
 
+      // Upload avatar se houver
+      if (avatarFile) {
+        const avatarUrl = await uploadAvatar(data.user.id)
+        if (avatarUrl) {
+          // Atualizar usuário com avatar_url
+          await supabase
+            .from('users')
+            .update({ avatar_url: avatarUrl })
+            .eq('id', data.user.id)
+
+          data.user.avatar_url = avatarUrl
+        }
+      }
+
       onUserCreated(data.user)
     } catch (err: any) {
       setError(err.message)
@@ -123,6 +140,46 @@ export default function NovoUsuarioModal({ onClose, onUserCreated }: NovoUsuario
       ...formData,
       password: generateRandomPassword(),
     })
+  }
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) {
+      setAvatarFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  async function uploadAvatar(userId: string): Promise<string | null> {
+    if (!avatarFile) return null
+
+    try {
+      setUploadingAvatar(true)
+      const fileExt = avatarFile.name.split('.').pop()
+      const fileName = `${userId}-${Date.now()}.${fileExt}`
+      const filePath = `avatars/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, avatarFile)
+
+      if (uploadError) throw uploadError
+
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      return data.publicUrl
+    } catch (err) {
+      console.error('Erro ao fazer upload de avatar:', err)
+      return null
+    } finally {
+      setUploadingAvatar(false)
+    }
   }
 
   return (
@@ -230,6 +287,36 @@ export default function NovoUsuarioModal({ onClose, onUserCreated }: NovoUsuario
               </p>
             </div>
           )}
+
+          {/* Avatar */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Foto de Perfil (Opcional)
+            </label>
+            <div className="flex gap-4">
+              {avatarPreview && (
+                <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-blue-500 flex-shrink-0">
+                  <img
+                    src={avatarPreview}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  disabled={uploadingAvatar}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-50"
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  JPG, PNG ou GIF. Máximo 5MB.
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Senha Temporária */}
           <div>
