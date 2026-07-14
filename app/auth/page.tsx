@@ -16,16 +16,27 @@ export default function LoginPage() {
     setError(null)
     setIsLoading(true)
 
-    const { data, error: loginError } = await signIn(email, password)
+    try {
+      const { data, error: loginError } = await signIn(email, password)
 
-    if (loginError) {
-      setError('Email ou senha incorretos')
+      console.log('Login attempt:', { email, hasData: !!data, hasError: !!loginError, errorMessage: loginError?.message })
+
+      if (loginError) {
+        setError(`Erro: ${loginError.message || 'Email ou senha incorretos'}`)
+        setIsLoading(false)
+        return
+      }
+
+      if (data?.user) {
+        router.push('/dashboard')
+      } else {
+        setError('Nenhum usuário retornado')
+        setIsLoading(false)
+      }
+    } catch (err) {
+      console.error('Login error:', err)
+      setError('Erro ao fazer login')
       setIsLoading(false)
-      return
-    }
-
-    if (data?.user) {
-      router.push('/dashboard')
     }
   }
 
