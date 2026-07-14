@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { sendWelcomeEmail } from '@/lib/email-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,6 +87,23 @@ export async function POST(request: NextRequest) {
       if (insertPermError) {
         console.error('Erro ao inserir permissões:', insertPermError)
       }
+    }
+
+    // 4. Enviar email de boas-vindas
+    if (process.env.RESEND_API_KEY) {
+      const emailResult = await sendWelcomeEmail({
+        email,
+        nome_completo,
+        senha_temporaria: password,
+        siteUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      })
+
+      if (!emailResult.success) {
+        console.warn('Email de boas-vindas não pôde ser enviado:', emailResult.error)
+        // Não falhar a criação do usuário se o email não for enviado
+      }
+    } else {
+      console.warn('RESEND_API_KEY não configurada. Email de boas-vindas não será enviado.')
     }
 
     return NextResponse.json({
