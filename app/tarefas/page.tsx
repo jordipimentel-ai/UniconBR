@@ -3,36 +3,22 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import {
-  listProcessos,
-  updateProcessoStatus,
-  listTiposProcesso,
-  listClientes,
-  createProcesso,
-  ProcessStatus,
-} from '@/lib/process-management'
+import { deleteProcesso, ProcessStatus } from '@/lib/process-management'
 import Sidebar from '@/components/Sidebar'
-import ProcessoCard from '@/components/ProcessoCard'
+import NovoTarefaModal from '@/components/NovoTarefaModal'
 
-interface Processo {
+interface Tarefa {
   id: string
   cliente_id: string
   tipo_processo_id: string
   status: ProcessStatus
   prazo: string
   descricao: string
-  cliente: { nome_razao_social: string }
-  tipo_processo: { nome: string }
-}
-
-interface TipoProcesso {
-  id: string
-  nome: string
-}
-
-interface Cliente {
-  id: string
-  nome_razao_social: string
+  user_id?: string
+  criado_em: string
+  cliente?: { nome_razao_social: string }
+  tipo_processo?: { nome: string }
+  users?: { nome_completo: string }
 }
 
 const STATUSES: ProcessStatus[] = [
@@ -46,28 +32,19 @@ const STATUSES: ProcessStatus[] = [
   'Cancelado',
 ]
 
+const PRIORIDADES = ['Baixa', 'Média', 'Alta']
+
 export default function TarefasPage() {
   const router = useRouter()
-  const [processos, setProcessos] = useState<Processo[]>([])
-  const [tiposProcesso, setTiposProcesso] = useState<TipoProcesso[]>([])
-  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [tarefas, setTarefas] = useState<Tarefa[]>([])
   const [loading, setLoading] = useState(true)
-  const [draggedId, setDraggedId] = useState<string | null>(null)
-  const [usuarios, setUsuarios] = useState<any[]>([])
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<string>('todos')
   const [showModal, setShowModal] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [formData, setFormData] = useState<any>({
-    cliente_id: '',
-    tipo_processo_id: '',
-    prazo: '',
-    descricao: '',
-    prioridade: 'media',
-    status_tarefa: 'pendente',
-    user_id: '',
-  })
+  const [sortBy, setSortBy] = useState<string>('prazo')
 
   useEffect(() => {
-    async function loadData() {
+    async function loadTarefas() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
@@ -75,116 +52,95 @@ export default function TarefasPage() {
           return
         }
 
-        const [processosRes, tiposRes, clientesRes, usuariosRes] = await Promise.all([
-          listProcessos(),
-          listTiposProcesso(),
-          listClientes(),
-          supabase.from('users').select('id, nome_completo, role').eq('ativo', true),
-        ])
+        const { data, error } = await supabase
+          .from('processos')
+          .select(`
+            *,
+            cliente:clientes(nome_razao_social),
+            tipo_processo:tipos_processo(nome),
+            users(nome_completo)
+          `)
+          .order('prazo', { ascending: true })
 
-        if (processosRes.data) setProcessos(processosRes.data)
-        if (tiposRes.data) setTiposProcesso(tiposRes.data)
-        if (clientesRes.data) setClientes(clientesRes.data)
-        if (usuariosRes.data) setUsuarios(usuariosRes.data)
-      } catch (err: any) {
-        setError(err.message)
+        if (!error && data) {
+          setTarefas(data)
+        }
+      } catch (err) {
+        console.error('Erro ao carregar tarefas:', err)
       } finally {
         setLoading(false)
       }
     }
 
-    loadData()
+    loadTarefas()
   }, [router])
 
-  async function handleDragOver(e: React.DragEvent) {
-    e.preventDefault()
-    e.currentTarget.classList.add('bg-blue-50')
-  }
+  const filteredTarefas = tarefas.filter((tarefa) => {
+    const matchSearch =
+      tarefa.descricao.toLowerCase().includes(search.toLowerCase()) ||
+      tarefa.cliente?.nome_razao_social.toLowerCase().includes(search.toLowerCase())
 
-  async function handleDragLeave(e: React.DragEvent) {
-    e.currentTarget.classList.remove('bg-blue-50')
-  }
+    const matchStatus = filterStatus === 'todos' || tarefa.status === filterStatus
 
-  async function handleDrop(e: React.DragEvent, novoStatus: ProcessStatus) {
-    e.preventDefault()
-    e.currentTarget.classList.remove('bg-blue-50')
+    return matchSearch && matchStatus
+  })
 
-    if (!draggedId) return
-
-    const { success } = await updateProcessoStatus(draggedId, novoStatus)
-    if (success) {
-      setProcessos(
-        processos.map((p) =>
-          p.id === draggedId ? { ...p, status: novoStatus } : p
+  const sortedTarefas = [...filteredTarefas].sort((a, b) => {
+    switch (sortBy) {
+      case 'descricao':
+        return a.descricao.localeCompare(b.descricao)
+      case 'cliente':
+        return (a.cliente?.nome_razao_social || '').localeCompare(
+          b.cliente?.nome_razao_social || ''
         )
-      )
-      setDraggedId(null)
+      case 'prazo':
+        return new Date(a.prazo).getTime() - new Date(b.prazo).getTime()
+      default:
+        return 0
+    }
+  })
+
+  async function handleDelete(id: string) {
+    if (!confirm('Tem certeza que deseja deletar esta tarefa?')) return
+
+    const { success } = await deleteProcesso(id)
+    if (success) {
+      setTarefas(tarefas.filter((t) => t.id !== id))
     }
   }
 
-  async function handleCreateProcesso(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-
-    if (!formData.cliente_id || !formData.tipo_processo_id || !formData.prazo) {
-      setError('Preencha todos os campos obrigatórios')
-      return
+  const getStatusColor = (status: string) => {
+    const colors: { [key: string]: string } = {
+      'Rascunho': 'bg-gray-100 text-gray-800',
+      'Recebido': 'bg-blue-100 text-blue-800',
+      'Em andamento': 'bg-yellow-100 text-yellow-800',
+      'Aguardando documentação': 'bg-orange-100 text-orange-800',
+      'Aguardando órgão externo': 'bg-purple-100 text-purple-800',
+      'Em revisão': 'bg-cyan-100 text-cyan-800',
+      'Concluído': 'bg-green-100 text-green-800',
+      'Cancelado': 'bg-red-100 text-red-800',
     }
+    return colors[status] || 'bg-gray-100 text-gray-800'
+  }
 
-    // Criar processo
-    const { data: novoProcesso, error: createError } = await createProcesso({
-      cliente_id: formData.cliente_id,
-      tipo_processo_id: formData.tipo_processo_id,
-      status: 'Rascunho',
-      prazo: formData.prazo,
-      descricao: formData.descricao,
-    })
-
-    // Se houver user_id e a coluna existir, atualizar após criação
-    let data = novoProcesso
-    if (novoProcesso && formData.user_id) {
-      try {
-        const { error: updateError } = await supabase
-          .from('processos')
-          .update({ user_id: formData.user_id })
-          .eq('id', novoProcesso.id)
-
-        if (!updateError) {
-          data = { ...novoProcesso, user_id: formData.user_id }
-        }
-      } catch (err) {
-        // Coluna user_id pode não existir ainda, continuar sem erro
-        console.log('user_id não pode ser atualizado ainda')
-      }
+  const getPrioridadeColor = (prioridade?: string) => {
+    if (!prioridade) return 'bg-gray-100 text-gray-800'
+    const colors: { [key: string]: string } = {
+      'Baixa': 'bg-green-100 text-green-800',
+      'Média': 'bg-yellow-100 text-yellow-800',
+      'Alta': 'bg-red-100 text-red-800',
     }
+    return colors[prioridade] || 'bg-gray-100 text-gray-800'
+  }
 
-    if (createError) {
-      setError(createError)
-      return
-    }
-
-    if (data) {
-      setProcessos([data, ...processos])
-      setShowModal(false)
-      setFormData({
-        cliente_id: '',
-        tipo_processo_id: '',
-        prazo: '',
-        descricao: '',
-        prioridade: 'media',
-        status_tarefa: 'pendente',
-        user_id: '',
-      } as any)
-    }
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('pt-BR')
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Sidebar />
-        <div className="ml-64 flex items-center justify-center h-screen">
-          <div className="text-gray-600">Carregando...</div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-600">Carregando...</div>
       </div>
     )
   }
@@ -195,12 +151,12 @@ export default function TarefasPage() {
 
       <div className="ml-64">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200">
-          <div className="px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Tarefas em Andamento</h1>
+        <header className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="px-8 py-6 flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-gray-900">Tarefas</h1>
             <button
               onClick={() => setShowModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-semibold shadow-sm"
             >
               + Nova Tarefa
             </button>
@@ -208,219 +164,158 @@ export default function TarefasPage() {
         </header>
 
         {/* Main */}
-        <main className="px-4 sm:px-6 lg:px-8 py-8">
-          {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
+        <main className="px-8 py-8">
+          {/* Filtros e Busca */}
+          <div className="mb-6 space-y-4">
+            <div className="flex gap-4">
+              <input
+                type="text"
+                placeholder="Buscar por descrição ou cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              >
+                <option value="todos">Todos os Status</option>
+                {STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
+          </div>
 
-          {/* Kanban Board */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-4 gap-4 overflow-x-auto">
-            {STATUSES.map((status) => {
-              const processosDoStatus = processos.filter((p) => p.status === status)
+          {/* Tabela */}
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100"
+                      onClick={() => setSortBy('descricao')}
+                    >
+                      Descrição {sortBy === 'descricao' && '↓'}
+                    </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100"
+                      onClick={() => setSortBy('cliente')}
+                    >
+                      Cliente {sortBy === 'cliente' && '↓'}
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Responsável
+                    </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100"
+                      onClick={() => setSortBy('prazo')}
+                    >
+                      Prazo {sortBy === 'prazo' && '↓'}
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Prioridade
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedTarefas.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-600">
+                        Nenhuma tarefa encontrada
+                      </td>
+                    </tr>
+                  ) : (
+                    sortedTarefas.map((tarefa) => (
+                      <tr key={tarefa.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
+                        <td className="px-6 py-4">
+                          <p className="font-medium text-gray-900 max-w-xs truncate">
+                            {tarefa.descricao}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {tarefa.tipo_processo?.nome}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4 text-gray-600">
+                          {tarefa.cliente?.nome_razao_social}
+                        </td>
+                        <td className="px-6 py-4 text-gray-600">
+                          {tarefa.users?.nome_completo || '—'}
+                        </td>
+                        <td className="px-6 py-4 text-gray-600">
+                          {formatDate(tarefa.prazo)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(tarefa.status)}`}>
+                            {tarefa.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-semibold text-gray-600">
+                            —
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => router.push(`/tarefas/${tarefa.id}`)}
+                              className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(tarefa.id)}
+                              className="px-3 py-1 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition"
+                            >
+                              Deletar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-              return (
-                <div
-                  key={status}
-                  className="bg-gray-100 rounded-lg p-4 min-h-96"
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, status)}
-                >
-                  <div className="mb-4">
-                    <h3 className="font-semibold text-gray-900">{status}</h3>
-                    <p className="text-sm text-gray-600">{processosDoStatus.length} tarefas</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    {processosDoStatus.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500 text-sm">
-                        Nenhuma tarefa
-                      </div>
-                    ) : (
-                      processosDoStatus.map((processo: any) => (
-                        <ProcessoCard
-                          key={processo.id}
-                          id={processo.id}
-                          cliente={processo.cliente.nome_razao_social}
-                          tipo={processo.tipo_processo.nome}
-                          prazo={processo.prazo}
-                          descricao={processo.descricao}
-                          prioridade={processo.prioridade || 'media'}
-                          statusTarefa={processo.status_tarefa || 'pendente'}
-                          responsavel={processo.responsavel_nome}
-                          onDragStart={setDraggedId}
-                          onClick={(id) => router.push(`/tarefas/${id}`)}
-                        />
-                      ))
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+          <div className="mt-4 text-sm text-gray-600">
+            Exibindo {sortedTarefas.length} de {tarefas.length} tarefas
           </div>
         </main>
       </div>
 
       {/* Modal Nova Tarefa */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Nova Tarefa</h2>
-
-            <form onSubmit={handleCreateProcesso} className="space-y-4">
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cliente *
-                </label>
-                <select
-                  value={formData.cliente_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, cliente_id: e.target.value })
-                  }
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Selecione um cliente</option>
-                  {clientes.map((cliente) => (
-                    <option key={cliente.id} value={cliente.id}>
-                      {cliente.nome_razao_social}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo de Serviço *
-                </label>
-                <select
-                  value={formData.tipo_processo_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, tipo_processo_id: e.target.value })
-                  }
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Selecione um tipo</option>
-                  {tiposProcesso.map((tipo) => (
-                    <option key={tipo.id} value={tipo.id}>
-                      {tipo.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Prazo *
-                </label>
-                <input
-                  type="date"
-                  value={formData.prazo}
-                  onChange={(e) =>
-                    setFormData({ ...formData, prazo: e.target.value })
-                  }
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Descrição
-                </label>
-                <textarea
-                  value={formData.descricao}
-                  onChange={(e) =>
-                    setFormData({ ...formData, descricao: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Responsável
-                </label>
-                <select
-                  value={formData.user_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, user_id: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Selecione um responsável</option>
-                  {usuarios.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.nome_completo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Prioridade
-                  </label>
-                  <select
-                    value={formData.prioridade}
-                    onChange={(e) =>
-                      setFormData({ ...formData, prioridade: e.target.value as any })
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    <option value="baixa">🟢 Baixa</option>
-                    <option value="media">🟡 Média</option>
-                    <option value="alta">🔴 Alta</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Status
-                  </label>
-                  <select
-                    value={formData.status_tarefa}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status_tarefa: e.target.value as any })
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    <option value="pendente">⚪ Pendente</option>
-                    <option value="em_andamento">🔵 Em andamento</option>
-                    <option value="concluida">✅ Concluída</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4 border-t">
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
-                >
-                  Criar Tarefa
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-900 font-medium rounded-lg hover:bg-gray-300 transition"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <NovoTarefaModal
+          onClose={() => setShowModal(false)}
+          onTarefaCreated={() => {
+            setShowModal(false)
+            // Reload tarefas
+            supabase
+              .from('processos')
+              .select(`
+                *,
+                cliente:clientes(nome_razao_social),
+                tipo_processo:tipos_processo(nome),
+                users(nome_completo)
+              `)
+              .order('prazo', { ascending: true })
+              .then(({ data }) => {
+                if (data) setTarefas(data)
+              })
+          }}
+        />
       )}
     </div>
   )
