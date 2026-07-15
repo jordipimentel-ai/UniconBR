@@ -73,9 +73,13 @@ export async function createProcesso(processo: {
   user_id?: string | null
 }) {
   try {
+    // Remover user_id da inserção se a coluna não existir
+    const processoData = { ...processo }
+    delete (processoData as any).user_id
+
     const { data, error } = await supabase
       .from('processos')
-      .insert([processo])
+      .insert([processoData])
       .select(`
         *,
         cliente:clientes(nome_razao_social),

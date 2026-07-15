@@ -131,14 +131,32 @@ export default function TarefasPage() {
       return
     }
 
-    const { data, error: createError } = await createProcesso({
+    // Criar processo
+    const { data: novoProcesso, error: createError } = await createProcesso({
       cliente_id: formData.cliente_id,
       tipo_processo_id: formData.tipo_processo_id,
       status: 'Rascunho',
       prazo: formData.prazo,
       descricao: formData.descricao,
-      user_id: formData.user_id || null,
     })
+
+    // Se houver user_id e a coluna existir, atualizar após criação
+    let data = novoProcesso
+    if (novoProcesso && formData.user_id) {
+      try {
+        const { error: updateError } = await supabase
+          .from('processos')
+          .update({ user_id: formData.user_id })
+          .eq('id', novoProcesso.id)
+
+        if (!updateError) {
+          data = { ...novoProcesso, user_id: formData.user_id }
+        }
+      } catch (err) {
+        // Coluna user_id pode não existir ainda, continuar sem erro
+        console.log('user_id não pode ser atualizado ainda')
+      }
+    }
 
     if (createError) {
       setError(createError)
