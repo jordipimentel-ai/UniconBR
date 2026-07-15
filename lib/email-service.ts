@@ -173,7 +173,7 @@ export async function sendWelcomeEmail({
     `
 
     const { data, error } = await resend.emails.send({
-      from: 'Sistema Contábil <onboarding@resend.dev>',
+      from: 'Sistema Contábil <noreply@uniconbr.com>',
       to: email,
       subject: `Bem-vindo ao Sistema de Gestão Contábil, ${primeiroNome}! 👋`,
       html: htmlContent,
