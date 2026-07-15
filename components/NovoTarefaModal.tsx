@@ -40,6 +40,8 @@ export default function NovoTarefaModal({
     prazo: '',
     descricao: '',
     user_id: '',
+    prioridade: 'media',
+    status_tarefa: 'pendente',
   })
 
   useEffect(() => {
@@ -238,6 +240,42 @@ export default function NovoTarefaModal({
                   {usuario.nome_completo}
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Prioridade */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Prioridade
+            </label>
+            <select
+              value={formData.prioridade}
+              onChange={(e) =>
+                setFormData({ ...formData, prioridade: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            >
+              <option value="baixa">🟢 Baixa</option>
+              <option value="media">🟡 Média</option>
+              <option value="alta">🔴 Alta</option>
+            </select>
+          </div>
+
+          {/* Status da Tarefa */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Status Inicial
+            </label>
+            <select
+              value={formData.status_tarefa}
+              onChange={(e) =>
+                setFormData({ ...formData, status_tarefa: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            >
+              <option value="pendente">⚪ Pendente</option>
+              <option value="em_andamento">🔵 Em andamento</option>
+              <option value="concluida">✅ Concluída</option>
             </select>
           </div>
 
