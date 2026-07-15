@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { createProcesso } from '@/lib/process-management'
 
 interface Cliente {
   id: string
@@ -36,12 +35,12 @@ export default function NovoTarefaModal({
   const [loadingData, setLoadingData] = useState(true)
   const [formData, setFormData] = useState({
     cliente_id: '',
-    tipo_processo_id: '',
+    processo_id: '',
     prazo: '',
     descricao: '',
-    user_id: '',
+    responsavel_id: '',
     prioridade: 'media',
-    status_tarefa: 'pendente',
+    status: 'pendente',
   })
 
   useEffect(() => {
@@ -83,42 +82,33 @@ export default function NovoTarefaModal({
     setLoading(true)
 
     try {
-      if (!formData.cliente_id || !formData.tipo_processo_id || !formData.prazo || !formData.descricao) {
+      if (!formData.cliente_id || !formData.processo_id || !formData.prazo || !formData.descricao) {
         setError('Preencha todos os campos obrigatórios')
         setLoading(false)
         return
       }
 
-      // Criar processo
-      const { data, error: createError } = await createProcesso({
-        cliente_id: formData.cliente_id,
-        tipo_processo_id: formData.tipo_processo_id,
-        status: 'Rascunho',
-        prazo: formData.prazo,
-        descricao: formData.descricao,
-        prioridade: formData.prioridade || 'media',
-        status_tarefa: formData.status_tarefa || 'pendente',
-      })
+      // Criar tarefa na tabela tarefas
+      const { data, error: createError } = await supabase
+        .from('tarefas')
+        .insert([{
+          cliente_id: formData.cliente_id,
+          processo_id: formData.processo_id,
+          prazo: formData.prazo,
+          descricao: formData.descricao,
+          responsavel_id: formData.responsavel_id || null,
+          prioridade: formData.prioridade,
+          status: formData.status,
+        }])
+        .select()
 
       if (createError) {
-        setError(createError)
+        setError(createError.message)
         setLoading(false)
         return
       }
 
-      // Atualizar user_id se houver
-      if (data && formData.user_id) {
-        try {
-          await supabase
-            .from('processos')
-            .update({ user_id: formData.user_id })
-            .eq('id', data.id)
-        } catch (err) {
-          console.log('Não foi possível atualizar responsável')
-        }
-      }
-
-      onTarefaCreated(data)
+      onTarefaCreated(data?.[0])
     } catch (err: any) {
       setError(err.message)
       setLoading(false)
@@ -172,17 +162,17 @@ export default function NovoTarefaModal({
           {/* Tipo de Processo */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tipo de Serviço *
+              Processo *
             </label>
             <select
-              value={formData.tipo_processo_id}
+              value={formData.processo_id}
               onChange={(e) =>
-                setFormData({ ...formData, tipo_processo_id: e.target.value })
+                setFormData({ ...formData, processo_id: e.target.value })
               }
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             >
-              <option value="">Selecione um tipo</option>
+              <option value="">Selecione um processo</option>
               {tiposProcesso.map((tipo) => (
                 <option key={tipo.id} value={tipo.id}>
                   {tipo.nome}
@@ -230,9 +220,9 @@ export default function NovoTarefaModal({
               Responsável (Opcional)
             </label>
             <select
-              value={formData.user_id}
+              value={formData.responsavel_id}
               onChange={(e) =>
-                setFormData({ ...formData, user_id: e.target.value })
+                setFormData({ ...formData, responsavel_id: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             >
@@ -266,12 +256,12 @@ export default function NovoTarefaModal({
           {/* Status da Tarefa */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Status Inicial
+              Status
             </label>
             <select
-              value={formData.status_tarefa}
+              value={formData.status}
               onChange={(e) =>
-                setFormData({ ...formData, status_tarefa: e.target.value })
+                setFormData({ ...formData, status: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             >

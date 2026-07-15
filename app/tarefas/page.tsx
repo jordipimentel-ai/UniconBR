@@ -3,38 +3,26 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { deleteProcesso, ProcessStatus } from '@/lib/process-management'
 import Sidebar from '@/components/Sidebar'
 import NovoTarefaModal from '@/components/NovoTarefaModal'
 
 interface Tarefa {
   id: string
   cliente_id: string
-  tipo_processo_id: string
-  status: ProcessStatus
-  prazo: string
+  processo_id: string
   descricao: string
-  user_id?: string
-  prioridade?: string
-  status_tarefa?: string
+  prazo: string
+  prioridade: 'baixa' | 'media' | 'alta'
+  status: 'pendente' | 'em_andamento' | 'concluida'
+  responsavel_id?: string
   criado_em: string
   cliente?: { nome_razao_social: string }
-  tipo_processo?: { nome: string }
+  tipos_processo?: { nome: string }
   users?: { nome_completo: string }
 }
 
-const STATUSES: ProcessStatus[] = [
-  'Rascunho',
-  'Recebido',
-  'Em andamento',
-  'Aguardando documentação',
-  'Aguardando órgão externo',
-  'Em revisão',
-  'Concluído',
-  'Cancelado',
-]
-
-const PRIORIDADES = ['Baixa', 'Média', 'Alta']
+const PRIORIDADES = ['baixa', 'media', 'alta']
+const STATUSES = ['pendente', 'em_andamento', 'concluida']
 
 export default function TarefasPage() {
   const router = useRouter()
@@ -55,17 +43,17 @@ export default function TarefasPage() {
         }
 
         const { data, error } = await supabase
-          .from('processos')
+          .from('tarefas')
           .select(`
             *,
             cliente:clientes(nome_razao_social),
-            tipo_processo:tipos_processo(nome),
-            users(nome_completo)
+            tipos_processo:tipos_processo(nome),
+            users:users(nome_completo)
           `)
           .order('prazo', { ascending: true })
 
         if (!error && data) {
-          setTarefas(data)
+          setTarefas(data as Tarefa[])
         }
       } catch (err) {
         console.error('Erro ao carregar tarefas:', err)
@@ -80,7 +68,7 @@ export default function TarefasPage() {
   const filteredTarefas = tarefas.filter((tarefa) => {
     const matchSearch =
       tarefa.descricao.toLowerCase().includes(search.toLowerCase()) ||
-      tarefa.cliente?.nome_razao_social.toLowerCase().includes(search.toLowerCase())
+      tarefa.cliente?.nome_razao_social?.toLowerCase().includes(search.toLowerCase())
 
     const matchStatus = filterStatus === 'todos' || tarefa.status === filterStatus
 
@@ -105,34 +93,50 @@ export default function TarefasPage() {
   async function handleDelete(id: string) {
     if (!confirm('Tem certeza que deseja deletar esta tarefa?')) return
 
-    const { success } = await deleteProcesso(id)
-    if (success) {
+    const { error } = await supabase
+      .from('tarefas')
+      .delete()
+      .eq('id', id)
+
+    if (!error) {
       setTarefas(tarefas.filter((t) => t.id !== id))
     }
   }
 
   const getStatusColor = (status: string) => {
     const colors: { [key: string]: string } = {
-      'Rascunho': 'bg-gray-100 text-gray-800',
-      'Recebido': 'bg-blue-100 text-blue-800',
-      'Em andamento': 'bg-yellow-100 text-yellow-800',
-      'Aguardando documentação': 'bg-orange-100 text-orange-800',
-      'Aguardando órgão externo': 'bg-purple-100 text-purple-800',
-      'Em revisão': 'bg-cyan-100 text-cyan-800',
-      'Concluído': 'bg-green-100 text-green-800',
-      'Cancelado': 'bg-red-100 text-red-800',
+      'pendente': 'bg-gray-100 text-gray-800',
+      'em_andamento': 'bg-yellow-100 text-yellow-800',
+      'concluida': 'bg-green-100 text-green-800',
     }
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
-  const getPrioridadeColor = (prioridade?: string) => {
-    if (!prioridade) return 'bg-gray-100 text-gray-800'
+  const getPrioridadeColor = (prioridade: string) => {
     const colors: { [key: string]: string } = {
-      'Baixa': 'bg-green-100 text-green-800',
-      'Média': 'bg-yellow-100 text-yellow-800',
-      'Alta': 'bg-red-100 text-red-800',
+      'baixa': 'bg-green-100 text-green-800',
+      'media': 'bg-yellow-100 text-yellow-800',
+      'alta': 'bg-red-100 text-red-800',
     }
     return colors[prioridade] || 'bg-gray-100 text-gray-800'
+  }
+
+  const getStatusLabel = (status: string) => {
+    const labels: { [key: string]: string } = {
+      'pendente': 'Pendente',
+      'em_andamento': 'Em andamento',
+      'concluida': 'Concluída',
+    }
+    return labels[status] || status
+  }
+
+  const getPrioridadeLabel = (prioridade: string) => {
+    const labels: { [key: string]: string } = {
+      'baixa': 'Baixa',
+      'media': 'Média',
+      'alta': 'Alta',
+    }
+    return labels[prioridade] || prioridade
   }
 
   const formatDate = (date: string) => {
@@ -185,7 +189,7 @@ export default function TarefasPage() {
                 <option value="todos">Todos os Status</option>
                 {STATUSES.map((status) => (
                   <option key={status} value={status}>
-                    {status}
+                    {getStatusLabel(status)}
                   </option>
                 ))}
               </select>
@@ -245,7 +249,7 @@ export default function TarefasPage() {
                             {tarefa.descricao}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {tarefa.tipo_processo?.nome}
+                            {tarefa.tipos_processo?.nome}
                           </p>
                         </td>
                         <td className="px-6 py-4 text-gray-600">
@@ -259,17 +263,13 @@ export default function TarefasPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(tarefa.status)}`}>
-                            {tarefa.status}
+                            {getStatusLabel(tarefa.status)}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          {tarefa.prioridade ? (
-                            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getPrioridadeColor(tarefa.prioridade)}`}>
-                              {tarefa.prioridade.charAt(0).toUpperCase() + tarefa.prioridade.slice(1)}
-                            </span>
-                          ) : (
-                            <span className="text-xs font-semibold text-gray-600">—</span>
-                          )}
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getPrioridadeColor(tarefa.prioridade)}`}>
+                            {getPrioridadeLabel(tarefa.prioridade)}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
@@ -309,25 +309,16 @@ export default function TarefasPage() {
             setShowModal(false)
             // Reload tarefas
             supabase
-              .from('processos')
+              .from('tarefas')
               .select(`
-                id,
-                cliente_id,
-                tipo_processo_id,
-                status,
-                prazo,
-                descricao,
-                user_id,
-                prioridade,
-                status_tarefa,
-                criado_em,
+                *,
                 cliente:clientes(nome_razao_social),
-                tipo_processo:tipos_processo(nome),
-                users(nome_completo)
+                tipos_processo:tipos_processo(nome),
+                users:users(nome_completo)
               `)
               .order('prazo', { ascending: true })
               .then(({ data }) => {
-                if (data) setTarefas(data)
+                if (data) setTarefas(data as Tarefa[])
               })
           }}
         />
