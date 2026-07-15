@@ -77,6 +77,11 @@ export default function Sidebar() {
     )
   }
 
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push('/auth')
+  }
+
   return (
     <aside className="w-64 bg-slate-800 text-white h-screen fixed left-0 top-0 flex flex-col shadow-lg">
       {/* Logo/Header */}

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
 
-export default function MigrationPage() {
+function MigrationPageContent() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -192,4 +192,8 @@ export default function MigrationPage() {
       </div>
     </div>
   )
+}
+
+export default function MigrationPage() {
+  return <MigrationPageContent />
 }
