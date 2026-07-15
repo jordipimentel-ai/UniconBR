@@ -16,7 +16,11 @@ interface Evento {
   responsavel?: string
 }
 
-export default function Calendar() {
+interface CalendarProps {
+  showNewEventButton?: boolean
+}
+
+export default function Calendar({ showNewEventButton = false }: CalendarProps) {
   const [mesAtual, setMesAtual] = useState(new Date())
   const [eventos, setEventos] = useState<Evento[]>([])
   const [diaHover, setDiaHover] = useState<number | null>(null)
@@ -223,12 +227,14 @@ export default function Calendar() {
             {mesNome} {ano}
           </h2>
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-semibold shadow-sm"
-            >
-              + Novo Evento
-            </button>
+            {showNewEventButton && (
+              <button
+                onClick={() => setShowModal(true)}
+                className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-semibold shadow-sm"
+              >
+                + Novo Evento
+              </button>
+            )}
             <button
               onClick={() => setMesAtual(new Date(mesAtual.getFullYear(), mesAtual.getMonth() - 1))}
               className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-lg transition font-medium"
@@ -419,7 +425,7 @@ export default function Calendar() {
       </div>
 
       {/* Modal de novo evento */}
-      {showModal && (
+      {showNewEventButton && showModal && (
         <NovoEventoModal
           onClose={() => setShowModal(false)}
           onEventoCreated={() => {

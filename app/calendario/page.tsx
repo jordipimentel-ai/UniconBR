@@ -35,7 +35,7 @@ export default function CalendarioPage() {
 
         {/* Main */}
         <main className="px-8 py-8">
-          <Calendar />
+          <Calendar showNewEventButton={true} />
         </main>
       </div>
     </div>
