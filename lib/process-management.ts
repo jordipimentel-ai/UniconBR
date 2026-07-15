@@ -19,6 +19,7 @@ interface Processo {
   descricao: string
   criado_em: string
   atualizado_em: string
+  user_id?: string
   cliente?: { nome_razao_social: string }
   tipo_processo?: { nome: string }
 }
@@ -69,6 +70,7 @@ export async function createProcesso(processo: {
   status: ProcessStatus
   prazo: string
   descricao: string
+  user_id?: string | null
 }) {
   try {
     const { data, error } = await supabase

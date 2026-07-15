@@ -137,6 +137,7 @@ export default function TarefasPage() {
       status: 'Rascunho',
       prazo: formData.prazo,
       descricao: formData.descricao,
+      user_id: formData.user_id || null,
     })
 
     if (createError) {

@@ -8,10 +8,12 @@ interface Evento {
   id: string
   data: string
   titulo: string
-  tipo: 'evento' | 'compromisso' | 'prazo'
+  tipo: 'evento' | 'compromisso' | 'prazo' | 'tarefa'
   descricao?: string
   hora?: string
   cor?: string
+  status?: string
+  responsavel?: string
 }
 
 export default function Calendar() {
@@ -31,67 +33,96 @@ export default function Calendar() {
       const primeirodia = new Date(mesAtual.getFullYear(), mesAtual.getMonth(), 1)
       const ultimodia = new Date(mesAtual.getFullYear(), mesAtual.getMonth() + 1, 0)
 
-      // Buscar todos os eventos
+      // Buscar eventos
       const { data: eventosDb } = await supabase
         .from('eventos')
         .select('*')
         .order('data', { ascending: true })
 
-      if (!eventosDb) {
-        setEventos([])
-        return
-      }
+      // Buscar tarefas/processos
+      const { data: tarefasDb } = await supabase
+        .from('processos')
+        .select('*')
+        .order('prazo', { ascending: true })
 
-      // Expandir eventos repetitivos
+      // Buscar usuários para mapear ids para nomes
+      const { data: usuariosDb } = await supabase
+        .from('users')
+        .select('id, nome_completo')
+
+      const usuariosMap = new Map(
+        (usuariosDb || []).map((u: any) => [u.id, u.nome_completo])
+      )
+
       const eventosExpandidos: Evento[] = []
 
-      eventosDb.forEach((e: any) => {
-        const dataOriginal = new Date(e.data)
-        let dataAtual = new Date(e.data)
+      // Processar eventos
+      if (eventosDb) {
+        eventosDb.forEach((e: any) => {
+          const dataOriginal = new Date(e.data)
+          let dataAtual = new Date(e.data)
 
-        // Adicionar evento original
-        if (dataAtual >= primeirodia && dataAtual <= ultimodia) {
-          eventosExpandidos.push({
-            id: e.id,
-            data: e.data,
-            titulo: e.titulo,
-            tipo: e.tipo,
-            descricao: e.descricao,
-            hora: e.hora,
-            cor: e.cor,
-          })
-        }
+          if (dataAtual >= primeirodia && dataAtual <= ultimodia) {
+            eventosExpandidos.push({
+              id: e.id,
+              data: e.data,
+              titulo: e.titulo,
+              tipo: e.tipo,
+              descricao: e.descricao,
+              hora: e.hora,
+              cor: e.cor,
+            })
+          }
 
-        // Expandir repetições
-        if (e.repetir !== 'nao') {
-          while (true) {
-            if (e.repetir === 'diario') {
-              dataAtual = new Date(dataAtual.getTime() + 24 * 60 * 60 * 1000)
-            } else if (e.repetir === 'semanal') {
-              dataAtual = new Date(dataAtual.getTime() + 7 * 24 * 60 * 60 * 1000)
-            } else if (e.repetir === 'mensal') {
-              dataAtual.setMonth(dataAtual.getMonth() + 1)
-            } else if (e.repetir === 'anual') {
-              dataAtual.setFullYear(dataAtual.getFullYear() + 1)
-            }
+          if (e.repetir !== 'nao') {
+            while (true) {
+              if (e.repetir === 'diario') {
+                dataAtual = new Date(dataAtual.getTime() + 24 * 60 * 60 * 1000)
+              } else if (e.repetir === 'semanal') {
+                dataAtual = new Date(dataAtual.getTime() + 7 * 24 * 60 * 60 * 1000)
+              } else if (e.repetir === 'mensal') {
+                dataAtual.setMonth(dataAtual.getMonth() + 1)
+              } else if (e.repetir === 'anual') {
+                dataAtual.setFullYear(dataAtual.getFullYear() + 1)
+              }
 
-            // Parar se passar do mês ou ir muito longe
-            if (dataAtual > ultimodia || dataAtual.getFullYear() > mesAtual.getFullYear() + 2) break
+              if (dataAtual > ultimodia || dataAtual.getFullYear() > mesAtual.getFullYear() + 2) break
 
-            if (dataAtual >= primeirodia && dataAtual <= ultimodia) {
-              eventosExpandidos.push({
-                id: `${e.id}-${dataAtual.toISOString().split('T')[0]}`,
-                data: dataAtual.toISOString().split('T')[0],
-                titulo: e.titulo,
-                tipo: e.tipo,
-                descricao: e.descricao,
-                hora: e.hora,
-                cor: e.cor,
-              })
+              if (dataAtual >= primeirodia && dataAtual <= ultimodia) {
+                eventosExpandidos.push({
+                  id: `${e.id}-${dataAtual.toISOString().split('T')[0]}`,
+                  data: dataAtual.toISOString().split('T')[0],
+                  titulo: e.titulo,
+                  tipo: e.tipo,
+                  descricao: e.descricao,
+                  hora: e.hora,
+                  cor: e.cor,
+                })
+              }
             }
           }
-        }
-      })
+        })
+      }
+
+      // Processar tarefas
+      if (tarefasDb) {
+        tarefasDb.forEach((t: any) => {
+          if (!t.prazo) return
+          const dataTarefa = new Date(t.prazo)
+          if (dataTarefa >= primeirodia && dataTarefa <= ultimodia) {
+            const responsavel = t.user_id ? usuariosMap.get(t.user_id) || 'Não atribuído' : 'Não atribuído'
+            eventosExpandidos.push({
+              id: `tarefa-${t.id}`,
+              data: t.prazo,
+              titulo: t.descricao,
+              tipo: 'tarefa',
+              status: t.status,
+              responsavel: responsavel,
+              cor: getCorStatus(t.status),
+            })
+          }
+        })
+      }
 
       setEventos(eventosExpandidos)
     } catch (err) {
@@ -99,6 +130,20 @@ export default function Calendar() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getCorStatus = (status: string) => {
+    const statusColors: { [key: string]: string } = {
+      'Rascunho': '#9CA3AF',
+      'Recebido': '#3B82F6',
+      'Em andamento': '#F59E0B',
+      'Aguardando documentação': '#EC4899',
+      'Aguardando órgão externo': '#8B5CF6',
+      'Em revisão': '#06B6D4',
+      'Concluído': '#10B981',
+      'Cancelado': '#EF4444',
+    }
+    return statusColors[status] || '#3B82F6'
   }
 
   const getDiasDoMes = () => {
@@ -142,6 +187,8 @@ export default function Calendar() {
         return '🤝'
       case 'prazo':
         return '⏰'
+      case 'tarefa':
+        return '✓'
       default:
         return '📌'
     }
@@ -270,16 +317,24 @@ export default function Calendar() {
                           <div key={evento.id} className="border-t border-gray-700 pt-2 first:border-t-0 first:pt-0">
                             <div className="flex items-center gap-2">
                               <span>{getTipoIcon(evento.tipo)}</span>
-                              <span className="font-medium flex-1">{evento.titulo}</span>
+                              <span className="font-medium flex-1 truncate">{evento.titulo}</span>
                             </div>
                             {evento.hora && (
                               <div className="text-gray-300 text-xs mt-1">🕐 {evento.hora}</div>
                             )}
-                            {evento.descricao && (
+                            {evento.descricao && !evento.status && (
                               <div className="text-gray-300 text-xs mt-1">{evento.descricao}</div>
                             )}
+                            {evento.status && (
+                              <div className="text-gray-300 text-xs mt-1">
+                                <div>📊 Status: {evento.status}</div>
+                                {evento.responsavel && <div>👤 {evento.responsavel}</div>}
+                              </div>
+                            )}
                             <div className="mt-1 inline-block px-2 py-0.5 rounded text-xs" style={{ backgroundColor: getCorEvento(evento.cor) }}>
-                              {evento.tipo === 'prazo' ? '⏰ Prazo' : evento.tipo === 'compromisso' ? '🤝 Compromisso' : '📅 Evento'}
+                              {evento.tipo === 'tarefa'
+                                ? evento.status
+                                : evento.tipo === 'prazo' ? '⏰ Prazo' : evento.tipo === 'compromisso' ? '🤝 Compromisso' : '📅 Evento'}
                             </div>
                           </div>
                         ))}
@@ -308,8 +363,8 @@ export default function Calendar() {
             <span>Prazo</span>
           </div>
           <div className="flex items-center gap-2">
-            <span>🕐</span>
-            <span>Com Horário</span>
+            <span>✓</span>
+            <span>Tarefa</span>
           </div>
         </div>
       </div>
@@ -317,11 +372,11 @@ export default function Calendar() {
       {/* Lista de Eventos */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mt-8">
         <h3 className="text-2xl font-bold text-slate-900 mb-6">
-          Eventos de {mesNome}
+          Eventos e Tarefas de {mesNome}
         </h3>
 
         {eventos.length === 0 ? (
-          <p className="text-slate-600 text-center py-12">Nenhum evento neste mês</p>
+          <p className="text-slate-600 text-center py-12">Nenhum evento ou tarefa neste mês</p>
         ) : (
           <div className="space-y-4">
             {eventos.map((evento) => {
@@ -341,12 +396,20 @@ export default function Calendar() {
                       <span className="font-semibold">{dia} de {mesNome}</span>
                       {evento.hora && <span> • {evento.hora}</span>}
                     </div>
-                    {evento.descricao && (
+                    {evento.descricao && !evento.status && (
                       <div className="text-sm text-slate-600 mt-2">{evento.descricao}</div>
+                    )}
+                    {evento.status && (
+                      <div className="text-sm text-slate-600 mt-2">
+                        <div>📊 Status: <span className="font-semibold">{evento.status}</span></div>
+                        {evento.responsavel && <div>👤 Responsável: <span className="font-semibold">{evento.responsavel}</span></div>}
+                      </div>
                     )}
                   </div>
                   <div className="text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap" style={{ backgroundColor: evento.cor || '#3B82F6', color: 'white' }}>
-                    {evento.tipo === 'prazo' ? '⏰ Prazo' : evento.tipo === 'compromisso' ? '🤝 Compromisso' : '📅 Evento'}
+                    {evento.tipo === 'tarefa'
+                      ? evento.status
+                      : evento.tipo === 'prazo' ? '⏰ Prazo' : evento.tipo === 'compromisso' ? '🤝 Compromisso' : '📅 Evento'}
                   </div>
                 </div>
               )
