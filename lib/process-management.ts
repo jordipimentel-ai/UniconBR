@@ -81,17 +81,41 @@ export async function createProcesso(processo: {
     const processoData: any = { ...processo }
     delete processoData.user_id
 
-    const { data, error } = await supabase
-      .from('processos')
-      .insert([processoData])
-      .select(`
-        *,
-        cliente:clientes(nome_razao_social),
-        tipo_processo:tipos_processo(nome)
-      `)
+    // Se as colunas não existirem, serão silenciosamente ignoradas
+    // Tentamos inserir com elas, e se falhar, tentamos sem elas
+    try {
+      const { data, error } = await supabase
+        .from('processos')
+        .insert([processoData])
+        .select(`
+          *,
+          cliente:clientes(nome_razao_social),
+          tipo_processo:tipos_processo(nome)
+        `)
 
-    if (error) throw error
-    return { data: data?.[0], error: null }
+      if (error) throw error
+      return { data: data?.[0], error: null }
+    } catch (err: any) {
+      // Se erro menciona prioridade ou status_tarefa, tenta sem elas
+      if (err.message?.includes('prioridade') || err.message?.includes('status_tarefa')) {
+        console.log('Colunas prioridade/status_tarefa não existem ainda. Criando sem elas.');
+        delete processoData.prioridade
+        delete processoData.status_tarefa
+
+        const { data, error } = await supabase
+          .from('processos')
+          .insert([processoData])
+          .select(`
+            *,
+            cliente:clientes(nome_razao_social),
+            tipo_processo:tipos_processo(nome)
+          `)
+
+        if (error) throw error
+        return { data: data?.[0], error: null }
+      }
+      throw err
+    }
   } catch (error: any) {
     return { data: null, error: error.message }
   }
