@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
+interface Permission {
+  id: string
+  nome: string
+  descricao?: string
+}
+
 interface EditarUsuarioModalProps {
   usuario: {
     id: string
@@ -22,11 +28,56 @@ export default function EditarUsuarioModal({
 }: EditarUsuarioModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [permissions, setPermissions] = useState<Permission[]>([])
+  const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set())
+  const [loadingPermissions, setLoadingPermissions] = useState(true)
   const [formData, setFormData] = useState({
     nome_completo: usuario.nome_completo,
     role: usuario.role as 'admin' | 'colaborador',
     avatar_url: usuario.avatar_url || '',
   })
+
+  useEffect(() => {
+    async function loadPermissions() {
+      try {
+        // Buscar todas as permissões
+        const { data: allPermissions } = await supabase
+          .from('permissoes')
+          .select('*')
+          .order('nome', { ascending: true })
+
+        if (allPermissions) {
+          setPermissions(allPermissions)
+        }
+
+        // Buscar permissões do usuário
+        const { data: userPermissions } = await supabase
+          .from('user_permissoes')
+          .select('permissao_id')
+          .eq('user_id', usuario.id)
+
+        if (userPermissions) {
+          setSelectedPermissions(new Set(userPermissions.map(p => p.permissao_id)))
+        }
+      } catch (err) {
+        console.error('Erro ao carregar permissões:', err)
+      } finally {
+        setLoadingPermissions(false)
+      }
+    }
+
+    loadPermissions()
+  }, [usuario.id])
+
+  function togglePermission(permissionId: string) {
+    const newSelected = new Set(selectedPermissions)
+    if (newSelected.has(permissionId)) {
+      newSelected.delete(permissionId)
+    } else {
+      newSelected.add(permissionId)
+    }
+    setSelectedPermissions(newSelected)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -34,6 +85,7 @@ export default function EditarUsuarioModal({
     setLoading(true)
 
     try {
+      // Atualizar dados do usuário
       const { error: updateError } = await supabase
         .from('users')
         .update({
@@ -44,6 +96,35 @@ export default function EditarUsuarioModal({
         .eq('id', usuario.id)
 
       if (updateError) throw updateError
+
+      // Se for colaborador, atualizar permissões
+      if (formData.role === 'colaborador') {
+        // Deletar permissões antigas
+        await supabase
+          .from('user_permissoes')
+          .delete()
+          .eq('user_id', usuario.id)
+
+        // Inserir novas permissões se houver
+        if (selectedPermissions.size > 0) {
+          const newPermissions = Array.from(selectedPermissions).map(permissionId => ({
+            user_id: usuario.id,
+            permissao_id: permissionId,
+          }))
+
+          const { error: permError } = await supabase
+            .from('user_permissoes')
+            .insert(newPermissions)
+
+          if (permError) throw permError
+        }
+      } else if (formData.role === 'admin') {
+        // Se mudar para admin, deletar permissões específicas (admin tem acesso a tudo)
+        await supabase
+          .from('user_permissoes')
+          .delete()
+          .eq('user_id', usuario.id)
+      }
 
       onUserUpdated({
         ...usuario,
@@ -141,6 +222,48 @@ export default function EditarUsuarioModal({
             />
             <p className="text-xs text-gray-500 mt-1">Email não pode ser alterado</p>
           </div>
+
+          {/* Permissões */}
+          {!loadingPermissions && formData.role === 'colaborador' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Permissões
+              </label>
+              <div className="space-y-2 border border-gray-300 rounded-lg p-3 bg-gray-50 max-h-40 overflow-y-auto">
+                {permissions.length === 0 ? (
+                  <p className="text-sm text-gray-600">Nenhuma permissão disponível</p>
+                ) : (
+                  permissions.map((perm) => (
+                    <label
+                      key={perm.id}
+                      className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPermissions.has(perm.id)}
+                        onChange={() => togglePermission(perm.id)}
+                        className="w-4 h-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm font-medium text-gray-900">
+                        {perm.nome.replace(/_/g, ' ')}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+              <p className="text-xs text-gray-600 mt-1">
+                Selecione as permissões para este colaborador
+              </p>
+            </div>
+          )}
+
+          {!loadingPermissions && formData.role === 'admin' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-900">
+                ✓ Admin terá acesso a todas as {permissions.length} permissões
+              </p>
+            </div>
+          )}
 
           {/* Botões */}
           <div className="flex gap-4 pt-4 border-t">
