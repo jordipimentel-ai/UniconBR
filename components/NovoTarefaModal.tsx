@@ -96,6 +96,8 @@ export default function NovoTarefaModal({
         status: 'Rascunho',
         prazo: formData.prazo,
         descricao: formData.descricao,
+        prioridade: formData.prioridade,
+        status_tarefa: formData.status_tarefa,
       })
 
       if (createError) {

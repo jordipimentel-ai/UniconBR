@@ -15,6 +15,8 @@ interface Tarefa {
   prazo: string
   descricao: string
   user_id?: string
+  prioridade?: string
+  status_tarefa?: string
   criado_em: string
   cliente?: { nome_razao_social: string }
   tipo_processo?: { nome: string }
@@ -261,9 +263,13 @@ export default function TarefasPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs font-semibold text-gray-600">
-                            —
-                          </span>
+                          {tarefa.prioridade ? (
+                            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getPrioridadeColor(tarefa.prioridade)}`}>
+                              {tarefa.prioridade.charAt(0).toUpperCase() + tarefa.prioridade.slice(1)}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold text-gray-600">—</span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
@@ -305,7 +311,16 @@ export default function TarefasPage() {
             supabase
               .from('processos')
               .select(`
-                *,
+                id,
+                cliente_id,
+                tipo_processo_id,
+                status,
+                prazo,
+                descricao,
+                user_id,
+                prioridade,
+                status_tarefa,
+                criado_em,
                 cliente:clientes(nome_razao_social),
                 tipo_processo:tipos_processo(nome),
                 users(nome_completo)

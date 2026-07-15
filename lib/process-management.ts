@@ -20,6 +20,8 @@ interface Processo {
   criado_em: string
   atualizado_em: string
   user_id?: string
+  prioridade?: string
+  status_tarefa?: string
   cliente?: { nome_razao_social: string }
   tipo_processo?: { nome: string }
 }
@@ -71,11 +73,13 @@ export async function createProcesso(processo: {
   prazo: string
   descricao: string
   user_id?: string | null
+  prioridade?: string
+  status_tarefa?: string
 }) {
   try {
     // Remover user_id da inserção se a coluna não existir
-    const processoData = { ...processo }
-    delete (processoData as any).user_id
+    const processoData: any = { ...processo }
+    delete processoData.user_id
 
     const { data, error } = await supabase
       .from('processos')
