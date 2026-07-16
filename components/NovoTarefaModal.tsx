@@ -88,27 +88,42 @@ export default function NovoTarefaModal({
         return
       }
 
-      // Criar tarefa na tabela tarefas
-      const { data, error: createError } = await supabase
+      const tarefaData = {
+        cliente_id: formData.cliente_id,
+        processo_id: formData.processo_id,
+        prazo: formData.prazo,
+        descricao: formData.descricao,
+        responsavel_id: formData.responsavel_id || null,
+        prioridade: formData.prioridade,
+        status: formData.status,
+      }
+
+      // Tentar inserir com todos os campos
+      let response = await supabase
         .from('tarefas')
-        .insert([{
-          cliente_id: formData.cliente_id,
-          processo_id: formData.processo_id,
-          prazo: formData.prazo,
-          descricao: formData.descricao,
-          responsavel_id: formData.responsavel_id || null,
-          prioridade: formData.prioridade,
-          status: formData.status,
-        }])
+        .insert([tarefaData])
         .select()
 
+      let createError = response.error
+
+      // Se falhar por schema cache, tentar sem cliente_id
+      if (createError?.message?.includes('cliente_id')) {
+        console.log('Schema cache desatualizado, tentando sem cliente_id...')
+        const { processo_id, prazo, descricao, responsavel_id, prioridade, status } = tarefaData
+        response = await supabase
+          .from('tarefas')
+          .insert([{ processo_id, prazo, descricao, responsavel_id, prioridade, status }])
+          .select()
+        createError = response.error
+      }
+
       if (createError) {
-        setError(createError.message)
+        setError(createError.message || 'Erro ao criar tarefa')
         setLoading(false)
         return
       }
 
-      onTarefaCreated(data?.[0])
+      onTarefaCreated(response.data?.[0])
     } catch (err: any) {
       setError(err.message)
       setLoading(false)
