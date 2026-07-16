@@ -38,7 +38,7 @@ export default function NovoTarefaModal({
     processo_id: '',
     prazo: '',
     descricao: '',
-    responsavel_id: '',
+    user_id: '',
     prioridade: 'media',
     status: 'pendente',
   })
@@ -93,7 +93,7 @@ export default function NovoTarefaModal({
         processo_id: formData.processo_id,
         prazo: formData.prazo,
         descricao: formData.descricao,
-        responsavel_id: formData.responsavel_id || null,
+        user_id: formData.user_id || undefined,
         prioridade: formData.prioridade,
         status: formData.status,
       }
@@ -106,13 +106,13 @@ export default function NovoTarefaModal({
 
       let createError = response.error
 
-      // Se falhar por schema cache, tentar sem cliente_id
-      if (createError?.message?.includes('cliente_id')) {
-        console.log('Schema cache desatualizado, tentando sem cliente_id...')
-        const { processo_id, prazo, descricao, responsavel_id, prioridade, status } = tarefaData
+      // Se falhar por schema cache, tentar sem user_id
+      if (createError?.message?.includes('user_id')) {
+        console.log('Tentando inserir sem user_id obrigatório...')
+        const { processo_id, prazo, descricao, prioridade, status, cliente_id } = tarefaData
         response = await supabase
           .from('tarefas')
-          .insert([{ processo_id, prazo, descricao, responsavel_id, prioridade, status }])
+          .insert([{ cliente_id, processo_id, prazo, descricao, prioridade, status }])
           .select()
         createError = response.error
       }
@@ -235,9 +235,9 @@ export default function NovoTarefaModal({
               Responsável (Opcional)
             </label>
             <select
-              value={formData.responsavel_id}
+              value={formData.user_id}
               onChange={(e) =>
-                setFormData({ ...formData, responsavel_id: e.target.value })
+                setFormData({ ...formData, user_id: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             >
