@@ -33,6 +33,7 @@ export default function NovoTarefaModal({
   const [tiposProcesso, setTiposProcesso] = useState<TipoProcesso[]>([])
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [loadingData, setLoadingData] = useState(true)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     cliente_id: '',
     processo_id: '',
@@ -46,6 +47,12 @@ export default function NovoTarefaModal({
   useEffect(() => {
     async function loadData() {
       try {
+        // Obter usuário atual
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setCurrentUserId(user.id)
+        }
+
         const [clientesRes, tiposRes, usuariosRes] = await Promise.all([
           supabase
             .from('clientes')
@@ -93,7 +100,7 @@ export default function NovoTarefaModal({
         processo_id: formData.processo_id,
         prazo: formData.prazo,
         descricao: formData.descricao,
-        user_id: formData.user_id || undefined,
+        user_id: formData.user_id || currentUserId || undefined,
         prioridade: formData.prioridade,
         status: formData.status,
       }
