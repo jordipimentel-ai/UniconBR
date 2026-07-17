@@ -35,7 +35,6 @@ export default function NovoTarefaModal({
   const [loadingData, setLoadingData] = useState(true)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
-    cliente_id: '',
     processo_id: '',
     prazo: '',
     descricao: '',
@@ -89,14 +88,13 @@ export default function NovoTarefaModal({
     setLoading(true)
 
     try {
-      if (!formData.cliente_id || !formData.processo_id || !formData.prazo || !formData.descricao) {
+      if (!formData.processo_id || !formData.prazo || !formData.descricao) {
         setError('Preencha todos os campos obrigatórios')
         setLoading(false)
         return
       }
 
       const tarefaData = {
-        cliente_id: formData.cliente_id,
         processo_id: formData.processo_id,
         prazo: formData.prazo,
         descricao: formData.descricao,
@@ -116,10 +114,10 @@ export default function NovoTarefaModal({
       // Se falhar por schema cache, tentar sem user_id
       if (createError?.message?.includes('user_id')) {
         console.log('Tentando inserir sem user_id obrigatório...')
-        const { processo_id, prazo, descricao, prioridade, status, cliente_id } = tarefaData
+        const { processo_id, prazo, descricao, prioridade, status } = tarefaData
         response = await supabase
           .from('tarefas')
-          .insert([{ cliente_id, processo_id, prazo, descricao, prioridade, status }])
+          .insert([{ processo_id, prazo, descricao, prioridade, status }])
           .select()
         createError = response.error
       }
@@ -158,28 +156,6 @@ export default function NovoTarefaModal({
               {error}
             </div>
           )}
-
-          {/* Cliente */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Cliente *
-            </label>
-            <select
-              value={formData.cliente_id}
-              onChange={(e) =>
-                setFormData({ ...formData, cliente_id: e.target.value })
-              }
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            >
-              <option value="">Selecione um cliente</option>
-              {clientes.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.nome_razao_social}
-                </option>
-              ))}
-            </select>
-          </div>
 
           {/* Tipo de Processo */}
           <div>
