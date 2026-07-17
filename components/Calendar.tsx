@@ -43,9 +43,9 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
         .select('*')
         .order('data', { ascending: true })
 
-      // Buscar tarefas/processos
+      // Buscar tarefas da nova tabela
       const { data: tarefasDb } = await supabase
-        .from('processos')
+        .from('tarefas')
         .select('*')
         .order('prazo', { ascending: true })
 

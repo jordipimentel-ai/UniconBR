@@ -10,7 +10,17 @@ import Calendar from '@/components/Calendar'
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [stats, setStats] = useState({ clientes: 0, processos: 0, tarefas: 0 })
+  const [stats, setStats] = useState({
+    clientes: 0,
+    processos: 0,
+    tarefas: 0,
+    tarefasPendentes: 0,
+    tarefasEmAndamento: 0,
+    tarefasConcluidas: 0,
+    tarefasAlta: 0,
+    tarefasMedia: 0,
+    tarefasBaixa: 0,
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -23,17 +33,46 @@ export default function DashboardPage() {
       }
       setUser(currentUser)
 
-      // Carregar estatísticas
+      // Carregar estatísticas básicas
       const [clientesRes, processosRes, tarefasRes] = await Promise.all([
         supabase.from('clientes').select('id', { count: 'exact', head: true }),
         supabase.from('processos').select('id', { count: 'exact', head: true }),
-        supabase.from('tarefas').select('id', { count: 'exact', head: true }),
+        supabase.from('tarefas').select('*', { count: 'exact', head: false }),
       ])
+
+      // Carregar estatísticas detalhadas de tarefas
+      const { data: tarefasData } = await supabase
+        .from('tarefas')
+        .select('status, prioridade')
+
+      let tarefasPendentes = 0
+      let tarefasEmAndamento = 0
+      let tarefasConcluidas = 0
+      let tarefasAlta = 0
+      let tarefasMedia = 0
+      let tarefasBaixa = 0
+
+      if (tarefasData) {
+        tarefasData.forEach((t: any) => {
+          if (t.status === 'pendente') tarefasPendentes++
+          if (t.status === 'em_andamento') tarefasEmAndamento++
+          if (t.status === 'concluida') tarefasConcluidas++
+          if (t.prioridade === 'alta') tarefasAlta++
+          if (t.prioridade === 'media') tarefasMedia++
+          if (t.prioridade === 'baixa') tarefasBaixa++
+        })
+      }
 
       setStats({
         clientes: clientesRes.count || 0,
         processos: processosRes.count || 0,
         tarefas: tarefasRes.count || 0,
+        tarefasPendentes,
+        tarefasEmAndamento,
+        tarefasConcluidas,
+        tarefasAlta,
+        tarefasMedia,
+        tarefasBaixa,
       })
 
       setLoading(false)
@@ -81,7 +120,7 @@ export default function DashboardPage() {
           <p className="text-slate-600 text-sm mt-1">Gerencie seu escritório com eficiência</p>
         </div>
 
-        {/* Stats */}
+        {/* Stats Principais */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
           {/* Clientes */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition">
@@ -111,18 +150,103 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Tarefas */}
+          {/* Tarefas Total */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <p className="text-slate-600 text-sm font-medium uppercase tracking-wide">Tarefas</p>
+                <p className="text-slate-600 text-sm font-medium uppercase tracking-wide">Total de Tarefas</p>
                 <p className="text-4xl font-bold text-slate-900 mt-3">{stats.tarefas}</p>
-                <p className="text-slate-500 text-xs mt-3">Tarefas em andamento</p>
+                <p className="text-slate-500 text-xs mt-3">Todas as tarefas criadas</p>
               </div>
               <div className="bg-orange-100 p-4 rounded-lg">
                 <span className="text-3xl">✓</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Stats Detalhadas de Tarefas */}
+        <h3 className="text-xl font-bold text-slate-900 mb-6">Estatísticas de Tarefas</h3>
+
+        {/* Por Status */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {/* Pendentes */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-slate-600 font-medium">Pendentes</p>
+              <span className="text-2xl">⚪</span>
+            </div>
+            <p className="text-3xl font-bold text-slate-900">{stats.tarefasPendentes}</p>
+            <div className="mt-4 bg-gray-100 h-2 rounded-full overflow-hidden">
+              <div
+                className="bg-gray-400 h-full"
+                style={{ width: `${stats.tarefas > 0 ? (stats.tarefasPendentes / stats.tarefas) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Em Andamento */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-slate-600 font-medium">Em andamento</p>
+              <span className="text-2xl">🔵</span>
+            </div>
+            <p className="text-3xl font-bold text-slate-900">{stats.tarefasEmAndamento}</p>
+            <div className="mt-4 bg-blue-100 h-2 rounded-full overflow-hidden">
+              <div
+                className="bg-blue-500 h-full"
+                style={{ width: `${stats.tarefas > 0 ? (stats.tarefasEmAndamento / stats.tarefas) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Concluídas */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-slate-600 font-medium">Concluídas</p>
+              <span className="text-2xl">✅</span>
+            </div>
+            <p className="text-3xl font-bold text-slate-900">{stats.tarefasConcluidas}</p>
+            <div className="mt-4 bg-green-100 h-2 rounded-full overflow-hidden">
+              <div
+                className="bg-green-500 h-full"
+                style={{ width: `${stats.tarefas > 0 ? (stats.tarefasConcluidas / stats.tarefas) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Por Prioridade */}
+        <h3 className="text-xl font-bold text-slate-900 mb-6">Tarefas por Prioridade</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {/* Alta */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-slate-600 font-medium">Alta Prioridade</p>
+              <span className="text-2xl">🔴</span>
+            </div>
+            <p className="text-3xl font-bold text-red-600">{stats.tarefasAlta}</p>
+            <p className="text-slate-500 text-sm mt-2">Requer atenção imediata</p>
+          </div>
+
+          {/* Média */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-slate-600 font-medium">Média Prioridade</p>
+              <span className="text-2xl">🟡</span>
+            </div>
+            <p className="text-3xl font-bold text-yellow-600">{stats.tarefasMedia}</p>
+            <p className="text-slate-500 text-sm mt-2">Prioridade normal</p>
+          </div>
+
+          {/* Baixa */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-slate-600 font-medium">Baixa Prioridade</p>
+              <span className="text-2xl">🟢</span>
+            </div>
+            <p className="text-3xl font-bold text-green-600">{stats.tarefasBaixa}</p>
+            <p className="text-slate-500 text-sm mt-2">Pode ser feito depois</p>
           </div>
         </div>
 
