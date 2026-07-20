@@ -83,11 +83,11 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-64 bg-slate-800 text-white h-screen fixed left-0 top-0 flex flex-col shadow-lg">
+    <aside className="w-64 bg-blue-600 text-white h-screen fixed left-0 top-0 flex flex-col shadow-lg">
       {/* Logo/Header */}
-      <div className="p-6 border-b border-slate-700">
-        <h1 className="text-2xl font-bold text-white">Contabilidade</h1>
-        <p className="text-slate-400 text-sm mt-2">Gestão Contábil</p>
+      <div className="p-6 border-b border-blue-700">
+        <h1 className="text-2xl font-bold text-white">UniConBR</h1>
+        <p className="text-blue-100 text-sm mt-2">Controle Uniforme</p>
       </div>
 
       {/* Menu Items */}
@@ -103,8 +103,8 @@ export default function Sidebar() {
               href={item.href}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
                 isActive
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                  ? 'bg-blue-700 text-white shadow-md'
+                  : 'text-blue-100 hover:bg-blue-700 hover:text-white'
               }`}
             >
               <span className="text-xl">{item.icon}</span>
@@ -115,7 +115,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Logout */}
-      <div className="p-4 border-t border-slate-700">
+      <div className="p-4 border-t border-blue-700">
         <button
           onClick={handleLogout}
           className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition shadow-md"
