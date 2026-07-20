@@ -47,7 +47,7 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold text-gray-900 text-center">
             UniConBR
           </h1>
-          <p className="text-gray-600 text-center mt-2">Controle Uniforme</p>
+          <p className="text-gray-600 text-center mt-2">Gestão de Escritório</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">

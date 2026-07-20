@@ -87,7 +87,7 @@ export default function Sidebar() {
       {/* Logo/Header */}
       <div className="p-6 border-b border-blue-700">
         <h1 className="text-2xl font-bold text-white">UniConBR</h1>
-        <p className="text-blue-100 text-sm mt-2">Controle Uniforme</p>
+        <p className="text-blue-100 text-sm mt-2">Gestão de Escritório</p>
       </div>
 
       {/* Menu Items */}
