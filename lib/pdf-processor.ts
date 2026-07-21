@@ -78,7 +78,7 @@ function extractImpostosData(text: string) {
 }
 
 function extractValue(text: string, pattern: RegExp): number {
-  const match = text.match(new RegExp(pattern.source + r'[:\s]*R?\$?\s*([\d.,]+)', pattern.flags))
+  const match = text.match(new RegExp(pattern.source + '[:\\s]*R?\\$?\\s*([\\d.,]+)', pattern.flags))
   if (match && match[1]) {
     return parseFloat(match[1].replace('.', '').replace(',', '.'))
   }
