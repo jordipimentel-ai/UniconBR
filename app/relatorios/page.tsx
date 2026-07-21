@@ -1,144 +1,152 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
+import UploadZone from '@/components/UploadZone'
+import RelatorioPreview from '@/components/RelatorioPreview'
+import { extractPDFData, consolidarDados } from '@/lib/pdf-processor'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+
+interface Cliente {
+  id: string
+  nome: string
+}
 
 interface RelatorioData {
-  totalUsuarios: number
-  usuariosAtivos: number
-  usuariosInativos: number
-  totalClientes: number
-  totalProcessos: number
-  totalTarefas: number
-  tarefasCompletas: number
-  tarefasPendentes: number
+  cliente: string
+  periodo: string
+  faturamento: number
+  salarios: number
+  encargos: number
+  impostos: number
+  saldoLiquido: number
+  detalhes: any
 }
 
 export default function RelatoriosPage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<RelatorioData | null>(null)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [clienteSelecionado, setClienteSelecionado] = useState('')
+  const [periodo, setPeriodo] = useState('mes')
+  const [mes, setMes] = useState(new Date().getMonth() + 1)
+  const [ano, setAno] = useState(new Date().getFullYear())
+  const [arquivos, setArquivos] = useState<File[]>([])
+  const [relatorio, setRelatorio] = useState<RelatorioData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [loadingClientes, setLoadingClientes] = useState(true)
+  const [erro, setErro] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function loadData() {
+  React.useEffect(() => {
+    async function loadClientes() {
       try {
-        setLoading(true)
-
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-        if (authError || !user) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
           router.push('/auth')
           return
         }
 
-        // Buscar dados para o relatório
-        const [usuariosRes, clientesRes, processosRes, tarefasRes] = await Promise.all([
-          supabase.from('users').select('id, ativo'),
-          supabase.from('clientes').select('id'),
-          supabase.from('processos').select('id'),
-          supabase.from('tarefas').select('id, completo'),
-        ])
+        const { data } = await supabase
+          .from('clientes')
+          .select('id, nome')
+          .order('nome')
 
-        const usuarios = usuariosRes.data || []
-        const clientes = clientesRes.data || []
-        const processos = processosRes.data || []
-        const tarefas = tarefasRes.data || []
-
-        setData({
-          totalUsuarios: usuarios.length,
-          usuariosAtivos: usuarios.filter((u: any) => u.ativo).length,
-          usuariosInativos: usuarios.filter((u: any) => !u.ativo).length,
-          totalClientes: clientes.length,
-          totalProcessos: processos.length,
-          totalTarefas: tarefas.length,
-          tarefasCompletas: tarefas.filter((t: any) => t.completo).length,
-          tarefasPendentes: tarefas.filter((t: any) => !t.completo).length,
-        })
+        if (data) setClientes(data)
       } catch (err) {
-        console.error('Erro ao carregar relatório:', err)
-        setErrorMsg('Erro ao carregar relatório')
+        console.error('Erro ao carregar clientes:', err)
       } finally {
-        setLoading(false)
+        setLoadingClientes(false)
       }
     }
 
-    loadData()
+    loadClientes()
   }, [router])
 
-  const cartoes = [
-    {
-      titulo: 'Total de Usuários',
-      valor: data?.totalUsuarios || 0,
-      icon: '👥',
-      cor: 'blue',
-    },
-    {
-      titulo: 'Usuários Ativos',
-      valor: data?.usuariosAtivos || 0,
-      icon: '✓',
-      cor: 'green',
-    },
-    {
-      titulo: 'Usuários Inativos',
-      valor: data?.usuariosInativos || 0,
-      icon: '✗',
-      cor: 'red',
-    },
-    {
-      titulo: 'Total de Clientes',
-      valor: data?.totalClientes || 0,
-      icon: '🏢',
-      cor: 'purple',
-    },
-    {
-      titulo: 'Total de Processos',
-      valor: data?.totalProcessos || 0,
-      icon: '📋',
-      cor: 'indigo',
-    },
-    {
-      titulo: 'Total de Tarefas',
-      valor: data?.totalTarefas || 0,
-      icon: '✓',
-      cor: 'orange',
-    },
-    {
-      titulo: 'Tarefas Completas',
-      valor: data?.tarefasCompletas || 0,
-      icon: '✅',
-      cor: 'emerald',
-    },
-    {
-      titulo: 'Tarefas Pendentes',
-      valor: data?.tarefasPendentes || 0,
-      icon: '⏳',
-      cor: 'amber',
-    },
-  ]
-
-  const getCoresBg = (cor: string) => {
-    const cores: Record<string, { bg: string; text: string }> = {
-      blue: { bg: 'bg-blue-50', text: 'text-blue-700' },
-      green: { bg: 'bg-green-50', text: 'text-green-700' },
-      red: { bg: 'bg-red-50', text: 'text-red-700' },
-      purple: { bg: 'bg-purple-50', text: 'text-purple-700' },
-      indigo: { bg: 'bg-indigo-50', text: 'text-indigo-700' },
-      orange: { bg: 'bg-orange-50', text: 'text-orange-700' },
-      emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700' },
-      amber: { bg: 'bg-amber-50', text: 'text-amber-700' },
+  async function handleGerarRelatorio() {
+    if (!clienteSelecionado) {
+      setErro('Selecione um cliente')
+      return
     }
-    return cores[cor] || cores.blue
+
+    if (arquivos.length === 0) {
+      setErro('Faça upload de pelo menos um arquivo')
+      return
+    }
+
+    setLoading(true)
+    setErro(null)
+
+    try {
+      const dadosExtraidos: any = {}
+
+      for (const arquivo of arquivos) {
+        const dados = await extractPDFData(arquivo)
+        Object.assign(dadosExtraidos, dados)
+      }
+
+      const clienteNome = clientes.find(c => c.id === clienteSelecionado)?.nome || ''
+      const periodoStr = periodo === 'mes'
+        ? `${String(mes).padStart(2, '0')}/${ano}`
+        : `${ano}`
+
+      const relatorioData = consolidarDados(dadosExtraidos, clienteNome, periodoStr)
+      setRelatorio(relatorioData)
+    } catch (err: any) {
+      console.error('Erro ao gerar relatório:', err)
+      setErro(err.message || 'Erro ao processar arquivos')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  if (loading) {
+  async function handleBaixarPDF() {
+    if (!relatorio) return
+
+    try {
+      const element = document.getElementById('relatorio-preview')
+      if (!element) return
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      })
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      })
+
+      const imgData = canvas.toDataURL('image/png')
+      const imgWidth = 210 - 20
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+      let position = 10
+
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
+      heightLeft -= pdf.internal.pageSize.getHeight() - 20
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
+        heightLeft -= pdf.internal.pageSize.getHeight()
+      }
+
+      pdf.save(`relatorio-${relatorio.cliente}-${relatorio.periodo}.pdf`)
+    } catch (err) {
+      console.error('Erro ao baixar PDF:', err)
+      setErro('Erro ao gerar PDF')
+    }
+  }
+
+  if (loadingClientes) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Sidebar />
-        <div className="ml-64 flex items-center justify-center h-screen">
-          <div className="text-gray-600">Carregando relatórios...</div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-600">Carregando clientes...</div>
       </div>
     )
   }
@@ -148,94 +156,132 @@ export default function RelatoriosPage() {
       <Sidebar />
 
       <div className="ml-64">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Relatórios</h1>
-            <p className="text-gray-600 text-sm mt-1">Dashboard com estatísticas do sistema</p>
+        <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
+          <div className="px-8 py-6">
+            <h1 className="text-3xl font-bold text-gray-900">Relatórios Financeiros</h1>
           </div>
         </header>
 
-        {/* Main */}
-        <main className="px-4 sm:px-6 lg:px-8 py-8">
-          {errorMsg && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {errorMsg}
-            </div>
-          )}
-
-          {/* Grid de Cartões */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {cartoes.map((cartao, index) => {
-              const cores = getCoresBg(cartao.cor)
-              return (
-                <div
-                  key={index}
-                  className={`${cores.bg} rounded-lg shadow-sm border border-gray-200 p-6`}
+        <main className="px-8 py-8">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cliente *</label>
+                <select
+                  value={clienteSelecionado}
+                  onChange={(e) => setClienteSelecionado(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">{cartao.titulo}</p>
-                      <p className={`text-3xl font-bold ${cores.text}`}>{cartao.valor}</p>
-                    </div>
-                    <span className="text-4xl">{cartao.icon}</span>
+                  <option value="">Selecione um cliente</option>
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nome}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Período *</label>
+                  <select
+                    value={periodo}
+                    onChange={(e) => setPeriodo(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  >
+                    <option value="mes">Mensal</option>
+                    <option value="ano">Anual</option>
+                  </select>
+                </div>
+
+                {periodo === 'mes' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Mês *</label>
+                    <select
+                      value={mes}
+                      onChange={(e) => setMes(parseInt(e.target.value))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <option key={i + 1} value={i + 1}>
+                          {new Date(2000, i).toLocaleString('pt-BR', { month: 'long' })}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )}
 
-          {/* Resumo Detalhado */}
-          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Usuários */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <span>👥</span> Resumo de Usuários
-              </h2>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total:</span>
-                  <span className="font-semibold text-gray-900">{data?.totalUsuarios}</span>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ano *</label>
+                  <select
+                    value={ano}
+                    onChange={(e) => setAno(parseInt(e.target.value))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  >
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const year = new Date().getFullYear() - i
+                      return (
+                        <option key={year} value={year}>{year}</option>
+                      )
+                    })}
+                  </select>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-green-500 h-2 rounded-full"
-                    style={{
-                      width: `${((data?.usuariosAtivos || 0) / (data?.totalUsuarios || 1)) * 100}%`,
-                    }}
-                  ></div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Anexos (PDFs) *</label>
+                <UploadZone onFilesSelected={setArquivos} />
+                {arquivos.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {arquivos.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-blue-50 rounded">
+                        <span className="text-sm text-gray-700">📄 {file.name}</span>
+                        <button
+                          onClick={() => setArquivos(arquivos.filter((_, i) => i !== idx))}
+                          className="text-xs text-red-600 hover:text-red-700"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {erro && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {erro}
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Ativos: <span className="font-semibold text-green-600">{data?.usuariosAtivos}</span></span>
-                  <span className="text-gray-600">Inativos: <span className="font-semibold text-red-600">{data?.usuariosInativos}</span></span>
-                </div>
+              )}
+
+              <div className="flex gap-3 pt-4 border-t">
+                <button
+                  onClick={handleGerarRelatorio}
+                  disabled={loading}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition"
+                >
+                  {loading ? 'Gerando...' : '📊 Gerar Relatório'}
+                </button>
               </div>
             </div>
 
-            {/* Tarefas */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <span>✓</span> Resumo de Tarefas
-              </h2>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total:</span>
-                  <span className="font-semibold text-gray-900">{data?.totalTarefas}</span>
+            {relatorio && (
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleBaixarPDF}
+                    className="px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition"
+                  >
+                    📥 Baixar PDF
+                  </button>
+                  <button
+                    onClick={() => setRelatorio(null)}
+                    className="px-6 py-2 bg-gray-400 text-white font-medium rounded-lg hover:bg-gray-500 transition"
+                  >
+                    ← Voltar
+                  </button>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-emerald-500 h-2 rounded-full"
-                    style={{
-                      width: `${((data?.tarefasCompletas || 0) / (data?.totalTarefas || 1)) * 100}%`,
-                    }}
-                  ></div>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Completas: <span className="font-semibold text-emerald-600">{data?.tarefasCompletas}</span></span>
-                  <span className="text-gray-600">Pendentes: <span className="font-semibold text-amber-600">{data?.tarefasPendentes}</span></span>
-                </div>
+                <RelatorioPreview relatorio={relatorio} />
               </div>
-            </div>
+            )}
           </div>
         </main>
       </div>
