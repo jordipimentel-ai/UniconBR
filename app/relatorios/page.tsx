@@ -8,7 +8,6 @@ import UploadZone from '@/components/UploadZone'
 import RelatorioPreview from '@/components/RelatorioPreview'
 import { extractPDFData, consolidarDados } from '@/lib/pdf-processor'
 import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
 
 interface Cliente {
   id: string
@@ -105,6 +104,7 @@ export default function RelatoriosPage() {
     if (!relatorio) return
 
     try {
+      const html2canvas = (await import('html2canvas')).default
       const element = document.getElementById('relatorio-preview')
       if (!element) return
 
