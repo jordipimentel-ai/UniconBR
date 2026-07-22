@@ -154,6 +154,14 @@ export default function RelatoriosPage() {
         scale: 2,
         useCORS: true,
         logging: false,
+        // Força as dimensões exatas do elemento — sem isso, o html2canvas
+        // pode calcular uma altura muito maior que a real quando há algum
+        // elemento "position: sticky" em outro lugar da página (o cabeçalho),
+        // gerando um PDF com dezenas/centenas de páginas em branco
+        width: element.offsetWidth,
+        height: element.scrollHeight,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
       })
 
       const pdf = new jsPDF({
@@ -162,20 +170,37 @@ export default function RelatoriosPage() {
         format: 'a4',
       })
 
+      const margem = 10
+      const larguraPagina = pdf.internal.pageSize.getWidth()
+      const alturaPagina = pdf.internal.pageSize.getHeight()
+      const larguraUtil = larguraPagina - margem * 2
+      const alturaUtil = alturaPagina - margem * 2
+
       const imgData = canvas.toDataURL('image/png')
-      const imgWidth = 210 - 20
+      const imgWidth = larguraUtil
       const imgHeight = (canvas.height * imgWidth) / canvas.width
-      let heightLeft = imgHeight
-      let position = 10
 
-      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
-      heightLeft -= pdf.internal.pageSize.getHeight() - 20
+      if (imgHeight <= alturaUtil) {
+        // Cabe inteiro em uma única página
+        pdf.addImage(imgData, 'PNG', margem, margem, imgWidth, imgHeight)
+      } else {
+        // Divide em páginas, com um limite de segurança para nunca gerar
+        // um PDF gigante caso a altura capturada esteja incorreta
+        const MAX_PAGINAS = 6
+        let heightLeft = imgHeight
+        let position = margem
+        let paginas = 1
 
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight
-        pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight)
-        heightLeft -= pdf.internal.pageSize.getHeight()
+        pdf.addImage(imgData, 'PNG', margem, position, imgWidth, imgHeight)
+        heightLeft -= alturaUtil
+
+        while (heightLeft > 0 && paginas < MAX_PAGINAS) {
+          position = margem - (imgHeight - heightLeft)
+          pdf.addPage()
+          pdf.addImage(imgData, 'PNG', margem, position, imgWidth, imgHeight)
+          heightLeft -= alturaUtil
+          paginas++
+        }
       }
 
       pdf.save(`relatorio-${relatorio.cliente}-${relatorio.periodo}.pdf`)
