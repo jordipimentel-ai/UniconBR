@@ -1,13 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
 import UploadZone from '@/components/UploadZone'
 import RelatorioPreview from '@/components/RelatorioPreview'
 import { extractPDFData, consolidarDados } from '@/lib/pdf-processor'
-import jsPDF from 'jspdf'
 
 interface Cliente {
   id: string
@@ -38,7 +37,7 @@ export default function RelatoriosPage() {
   const [loadingClientes, setLoadingClientes] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     async function loadClientes() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
@@ -105,6 +104,7 @@ export default function RelatoriosPage() {
 
     try {
       const html2canvas = (await import('html2canvas')).default
+      const { default: jsPDF } = await import('jspdf')
       const element = document.getElementById('relatorio-preview')
       if (!element) return
 
