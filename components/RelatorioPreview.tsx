@@ -6,6 +6,7 @@ interface RelatorioPreviewProps {
     salarios: number
     encargos: number
     impostos: number
+    aliquota: number
     saldoLiquido: number
     detalhes: any
   }
@@ -119,7 +120,7 @@ export default function RelatorioPreview({ relatorio }: RelatorioPreviewProps) {
               )}
               {relatorio.encargos > 0 && (
                 <tr className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-900">Encargos (FGTS, INSS Patronal)</td>
+                  <td className="px-4 py-3 text-gray-900">Encargos e Descontos da Folha (INSS)</td>
                   <td className="px-4 py-3 text-right font-semibold text-red-600">
                     -{formatCurrency(relatorio.encargos)}
                   </td>
@@ -127,7 +128,12 @@ export default function RelatorioPreview({ relatorio }: RelatorioPreviewProps) {
               )}
               {relatorio.impostos > 0 && (
                 <tr className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-900">Impostos e Taxas</td>
+                  <td className="px-4 py-3 text-gray-900">
+                    Impostos e Taxas (Simples Nacional)
+                    <span className="ml-2 text-xs font-semibold text-gray-500">
+                      Alíquota efetiva: {relatorio.aliquota.toFixed(2)}%
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-right font-semibold text-red-600">
                     -{formatCurrency(relatorio.impostos)}
                   </td>

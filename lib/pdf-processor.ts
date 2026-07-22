@@ -14,14 +14,25 @@ export async function extractPDFData(file: File) {
       fullText += pageText + '\n'
     }
 
+    const nome = file.name.toLowerCase()
     const dados: any = {}
 
-    if (file.name.toLowerCase().includes('pgdas') || file.name.toLowerCase().includes('declaração')) {
-      dados.pgdas = extractPGDASData(fullText)
-    } else if (file.name.toLowerCase().includes('folha') || file.name.toLowerCase().includes('pagamento')) {
+    if (nome.includes('declaracao') || nome.includes('declaração')) {
+      dados.pgdasDeclaracao = extractPGDASDeclaracaoData(fullText)
+    } else if (nome.includes('recibo')) {
+      dados.pgdasRecibo = extractPGDASReciboData(fullText)
+    } else if (nome.includes('pgdas')) {
+      // Nome genérico: tenta o formato mais completo (declaração) e cai para o recibo se não achar nada
+      const declaracao = extractPGDASDeclaracaoData(fullText)
+      if (declaracao.faturamento > 0) {
+        dados.pgdasDeclaracao = declaracao
+      } else {
+        dados.pgdasRecibo = extractPGDASReciboData(fullText)
+      }
+    } else if (nome.includes('extrato') || nome.includes('folha') || nome.includes('pagamento')) {
       dados.folha = extractFolhaData(fullText)
-    } else if (file.name.toLowerCase().includes('imposto') || file.name.toLowerCase().includes('taxa')) {
-      dados.impostos = extractImpostosData(fullText)
+    } else if (nome.includes('imposto') || nome.includes('taxa')) {
+      dados.impostos = extractImpostosGenericos(fullText)
     }
 
     return dados
@@ -31,73 +42,116 @@ export async function extractPDFData(file: File) {
   }
 }
 
-function extractPGDASData(text: string) {
-  const faturamento = extractValue(text, /faturamento|receita total|base de cálculo/gi)
-  const impostos: Record<string, number> = {}
-
-  impostos['INSS'] = extractValue(text, /INSS|Contribuição Sindical/gi)
-  impostos['PIS'] = extractValue(text, /PIS|Programa de Integração/gi)
-  impostos['COFINS'] = extractValue(text, /COFINS/gi)
-  impostos['ICMS'] = extractValue(text, /ICMS/gi)
-  impostos['ISS'] = extractValue(text, /ISS/gi)
-
-  return {
-    faturamento: faturamento || 0,
-    impostos: Object.fromEntries(Object.entries(impostos).filter(([, v]) => v > 0))
-  }
+function parseValorBR(valor: string): number {
+  return parseFloat(valor.replace(/\./g, '').replace(',', '.')) || 0
 }
 
+// Textos extraídos de PDF por pdfjs costumam ter espaçamento irregular entre
+// palavras (múltiplos espaços), então rótulos viram regex tolerante a isso.
+function labelToRegexSource(label: string): string {
+  return label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+}
+
+const VALOR_BR = 'R?\\$?\\s*([\\d]{1,3}(?:\\.\\d{3})*,\\d{2}|\\d+[.,]\\d{2})'
+
+// Casa o primeiro valor monetário logo após um rótulo, tolerando texto entre eles
+function matchValorAposLabel(text: string, label: string, maxGap = 40): number {
+  const re = new RegExp(labelToRegexSource(label) + `[^\\d]{0,${maxGap}}?${VALOR_BR}`, 'i')
+  const match = text.match(re)
+  return match ? parseValorBR(match[1]) : 0
+}
+
+// Casa dois valores em sequência após um rótulo — usado quando o layout em
+// tabela lista vários rótulos e só depois os valores correspondentes, em ordem
+function matchDoisValoresAposLabel(text: string, label: string, maxGap1 = 200, maxGap2 = 30): [number, number] | null {
+  const re = new RegExp(
+    labelToRegexSource(label) + `[^\\d]{0,${maxGap1}}?${VALOR_BR}[^\\d]{1,${maxGap2}}?${VALOR_BR}`,
+    'i'
+  )
+  const match = text.match(re)
+  return match ? [parseValorBR(match[1]), parseValorBR(match[2])] : null
+}
+
+// PGDAS-D Declaração: bloco "2.6) Resumo da Declaração" traz Receita Bruta
+// Auferida e Valor Total do Débito Declarado em sequência, um logo após o outro
+function extractPGDASDeclaracaoData(text: string) {
+  let faturamento = 0
+  let impostoTotal = 0
+
+  const resumo = matchDoisValoresAposLabel(text, 'Receita Bruta Auferida')
+  if (resumo) {
+    faturamento = resumo[0]
+    impostoTotal = resumo[1]
+  }
+
+  // Fallback: "Receita Bruta do PA (RPA) - Competência" (Mercado Interno | Mercado Externo | Total)
+  if (!faturamento) {
+    const re = new RegExp(
+      labelToRegexSource('Receita Bruta do PA') + `[^\\d]{0,40}?${VALOR_BR}\\s*${VALOR_BR}\\s*${VALOR_BR}`,
+      'i'
+    )
+    const rpa = text.match(re)
+    if (rpa) faturamento = parseValorBR(rpa[3] || rpa[1])
+  }
+
+  return { faturamento, impostoTotal }
+}
+
+// Recibo de Entrega do PGDAS-D: período e número da apuração (também números)
+// aparecem entre o rótulo e os valores, então exige o marcador "R$" antes deles
+function extractPGDASReciboData(text: string) {
+  const re = new RegExp(
+    labelToRegexSource('Receita Bruta') + `[\\s\\S]{0,300}?R\\$\\s*([\\d]{1,3}(?:\\.\\d{3})*,\\d{2})[\\s\\S]{0,30}?R\\$\\s*([\\d]{1,3}(?:\\.\\d{3})*,\\d{2})`,
+    'i'
+  )
+  const match = text.match(re)
+  return match
+    ? { faturamento: parseValorBR(match[1]), impostoTotal: parseValorBR(match[2]) }
+    : { faturamento: 0, impostoTotal: 0 }
+}
+
+// Extrato Mensal (folha de pagamento): "Total Geral Proventos" e "Total Geral
+// Descontos" aparecem como dois rótulos seguidos pelos dois valores em sequência
 function extractFolhaData(text: string) {
+  const totais = matchDoisValoresAposLabel(text, 'Total Geral Proventos', 80, 30)
+  if (totais) {
+    return { salarios: totais[0], encargos: totais[1] }
+  }
+
+  // Fallback genérico para outros formatos de folha
   return {
-    salarios: extractValue(text, /salário|provento|remuneração|bruto/gi) || 0,
-    descontos: extractValue(text, /desconto|INSS|IRRF/gi) || 0,
-    encargos: extractValue(text, /encargo|FGTS|contribuição patronal/gi) || 0
+    salarios: matchValorAposLabel(text, 'sal[áa]rio bruto|proventos totais'),
+    encargos: matchValorAposLabel(text, 'encargos|contribui[çc][ãa]o patronal'),
   }
 }
 
-function extractImpostosData(text: string) {
+function extractImpostosGenericos(text: string) {
   const impostos: Record<string, number> = {}
-  const patterns = {
-    'INSS': /INSS.*?(\d+[.,]\d{2})/gi,
-    'ICMS': /ICMS.*?(\d+[.,]\d{2})/gi,
-    'PIS': /PIS.*?(\d+[.,]\d{2})/gi,
-    'COFINS': /COFINS.*?(\d+[.,]\d{2})/gi,
-    'ISS': /ISS.*?(\d+[.,]\d{2})/gi,
-  }
+  const rotulos = ['INSS', 'ICMS', 'PIS', 'COFINS', 'ISS']
 
-  Object.entries(patterns).forEach(([key, pattern]) => {
-    const match = text.match(pattern)
-    if (match) {
-      const value = match[1].replace(',', '.')
-      impostos[key] = parseFloat(value)
-    }
+  rotulos.forEach((rotulo) => {
+    const valor = matchValorAposLabel(text, rotulo)
+    if (valor > 0) impostos[rotulo] = valor
   })
 
   return impostos
 }
 
-function extractValue(text: string, pattern: RegExp): number {
-  // Layouts em tabela costumam ter texto entre o rótulo e o valor quando o PDF
-  // é convertido para texto corrido, então tolera até ~60 caracteres no meio.
-  const match = text.match(new RegExp(pattern.source + '[^\\d]{0,60}?R?\\$?\\s*([\\d]{1,3}(?:\\.\\d{3})*,\\d{2}|\\d+[.,]\\d{2})', pattern.flags))
-  if (match && match[1]) {
-    return parseFloat(match[1].replace(/\./g, '').replace(',', '.'))
-  }
-  return 0
-}
-
 export function consolidarDados(dados: any, cliente: string, periodo: string) {
-  const faturamento = dados.pgdas?.faturamento || 0
+  const pgdas = dados.pgdasDeclaracao?.faturamento
+    ? dados.pgdasDeclaracao
+    : dados.pgdasRecibo?.faturamento
+    ? dados.pgdasRecibo
+    : null
+
+  const faturamento = pgdas?.faturamento || 0
+  const impostos =
+    pgdas?.impostoTotal ||
+    (dados.impostos ? Object.values(dados.impostos).reduce((a: number, b: any) => a + b, 0) : 0)
+  const aliquota = faturamento > 0 ? (impostos / faturamento) * 100 : 0
+
   const salarios = dados.folha?.salarios || 0
   const encargos = dados.folha?.encargos || 0
-  
-  let impostos = 0
-  if (dados.pgdas?.impostos) {
-    impostos += Object.values(dados.pgdas.impostos).reduce((a: number, b: any) => a + b, 0)
-  }
-  if (dados.impostos) {
-    impostos += Object.values(dados.impostos).reduce((a: number, b: any) => a + b, 0)
-  }
 
   const saldoLiquido = faturamento - (salarios + encargos + impostos)
 
@@ -108,7 +162,8 @@ export function consolidarDados(dados: any, cliente: string, periodo: string) {
     salarios,
     encargos,
     impostos,
+    aliquota,
     saldoLiquido,
-    detalhes: dados
+    detalhes: dados,
   }
 }
