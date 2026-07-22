@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import NovoEventoModal from './NovoEventoModal'
+import { deleteEvento, RepetirEvento } from '@/lib/event-management'
 
 interface Evento {
   id: string
+  eventoId?: string
   data: string
   titulo: string
   tipo: 'evento' | 'compromisso' | 'prazo' | 'tarefa'
@@ -14,6 +16,7 @@ interface Evento {
   cor?: string
   status?: string
   responsavel?: string
+  repetir?: RepetirEvento
 }
 
 interface CalendarProps {
@@ -26,6 +29,8 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
   const [diaHover, setDiaHover] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [eventoEditando, setEventoEditando] = useState<Evento | null>(null)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
 
   useEffect(() => {
     loadEventos()
@@ -69,12 +74,14 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
           if (dataAtual >= primeirodia && dataAtual <= ultimodia) {
             eventosExpandidos.push({
               id: e.id,
+              eventoId: e.id,
               data: e.data,
               titulo: e.titulo,
               tipo: e.tipo,
               descricao: e.descricao,
               hora: e.hora,
               cor: e.cor,
+              repetir: e.repetir,
             })
           }
 
@@ -95,12 +102,14 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
               if (dataAtual >= primeirodia && dataAtual <= ultimodia) {
                 eventosExpandidos.push({
                   id: `${e.id}-${dataAtual.toISOString().split('T')[0]}`,
+                  eventoId: e.id,
                   data: dataAtual.toISOString().split('T')[0],
                   titulo: e.titulo,
                   tipo: e.tipo,
                   descricao: e.descricao,
                   hora: e.hora,
                   cor: e.cor,
+                  repetir: e.repetir,
                 })
               }
             }
@@ -181,6 +190,30 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
 
   const getCorEvento = (cor?: string) => {
     return cor || '#3B82F6'
+  }
+
+  const handleEditar = (evento: Evento) => {
+    setEventoEditando(evento)
+  }
+
+  const handleExcluir = async (evento: Evento) => {
+    if (!evento.eventoId) return
+
+    const confirmMsg = evento.repetir && evento.repetir !== 'nao'
+      ? 'Este evento se repete. Deseja excluir TODAS as ocorrências deste evento?'
+      : 'Deseja excluir este evento?'
+
+    if (!confirm(confirmMsg)) return
+
+    setExcluindoId(evento.id)
+    const { success } = await deleteEvento(evento.eventoId)
+    setExcluindoId(null)
+
+    if (success) {
+      loadEventos()
+    } else {
+      alert('Erro ao excluir evento')
+    }
   }
 
   const getTipoIcon = (tipo: string) => {
@@ -412,10 +445,29 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
                       </div>
                     )}
                   </div>
-                  <div className="text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap" style={{ backgroundColor: evento.cor || '#3B82F6', color: 'white' }}>
-                    {evento.tipo === 'tarefa'
-                      ? evento.status
-                      : evento.tipo === 'prazo' ? '⏰ Prazo' : evento.tipo === 'compromisso' ? '🤝 Compromisso' : '📅 Evento'}
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap" style={{ backgroundColor: evento.cor || '#3B82F6', color: 'white' }}>
+                      {evento.tipo === 'tarefa'
+                        ? evento.status
+                        : evento.tipo === 'prazo' ? '⏰ Prazo' : evento.tipo === 'compromisso' ? '🤝 Compromisso' : '📅 Evento'}
+                    </div>
+                    {showNewEventButton && evento.tipo !== 'tarefa' && (
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleEditar(evento)}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleExcluir(evento)}
+                          disabled={excluindoId === evento.id}
+                          className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:text-slate-400"
+                        >
+                          {excluindoId === evento.id ? 'Excluindo...' : 'Excluir'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -431,6 +483,27 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
           onEventoCreated={() => {
             loadEventos()
             setShowModal(false)
+          }}
+        />
+      )}
+
+      {/* Modal de editar evento */}
+      {showNewEventButton && eventoEditando && (
+        <NovoEventoModal
+          onClose={() => setEventoEditando(null)}
+          onEventoCreated={() => {
+            loadEventos()
+            setEventoEditando(null)
+          }}
+          eventoParaEditar={{
+            id: eventoEditando.eventoId || eventoEditando.id,
+            titulo: eventoEditando.titulo,
+            descricao: eventoEditando.descricao,
+            data: eventoEditando.data,
+            hora: eventoEditando.hora,
+            tipo: eventoEditando.tipo as 'evento' | 'compromisso' | 'prazo',
+            repetir: eventoEditando.repetir,
+            cor: eventoEditando.cor,
           }}
         />
       )}

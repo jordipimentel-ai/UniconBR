@@ -1,25 +1,38 @@
 'use client'
 
 import { useState } from 'react'
-import { createEvento, RepetirEvento } from '@/lib/event-management'
+import { createEvento, updateEvento, RepetirEvento } from '@/lib/event-management'
+
+interface EventoParaEditar {
+  id: string
+  titulo: string
+  descricao?: string
+  data: string
+  hora?: string
+  tipo: 'evento' | 'compromisso' | 'prazo'
+  repetir?: RepetirEvento
+  cor?: string
+}
 
 interface NovoEventoModalProps {
   onClose: () => void
   onEventoCreated: () => void
   dataPadrao?: string
+  eventoParaEditar?: EventoParaEditar
 }
 
-export default function NovoEventoModal({ onClose, onEventoCreated, dataPadrao }: NovoEventoModalProps) {
+export default function NovoEventoModal({ onClose, onEventoCreated, dataPadrao, eventoParaEditar }: NovoEventoModalProps) {
+  const isEditando = !!eventoParaEditar
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
-    titulo: '',
-    descricao: '',
-    data: dataPadrao || new Date().toISOString().split('T')[0],
-    hora: '09:00',
-    tipo: 'evento' as 'evento' | 'compromisso' | 'prazo',
-    repetir: 'nao' as RepetirEvento,
-    cor: '#3B82F6',
+    titulo: eventoParaEditar?.titulo || '',
+    descricao: eventoParaEditar?.descricao || '',
+    data: eventoParaEditar?.data || dataPadrao || new Date().toISOString().split('T')[0],
+    hora: eventoParaEditar?.hora || '09:00',
+    tipo: eventoParaEditar?.tipo || ('evento' as 'evento' | 'compromisso' | 'prazo'),
+    repetir: eventoParaEditar?.repetir || ('nao' as RepetirEvento),
+    cor: eventoParaEditar?.cor || '#3B82F6',
   })
 
   async function handleSubmit(e: React.FormEvent) {
@@ -30,6 +43,20 @@ export default function NovoEventoModal({ onClose, onEventoCreated, dataPadrao }
     if (!formData.titulo.trim()) {
       setError('Título é obrigatório')
       setLoading(false)
+      return
+    }
+
+    if (isEditando && eventoParaEditar) {
+      const { success, error: updateError } = await updateEvento(eventoParaEditar.id, formData)
+
+      if (!success) {
+        setError(updateError || 'Erro ao atualizar evento')
+        setLoading(false)
+        return
+      }
+
+      onEventoCreated()
+      onClose()
       return
     }
 
@@ -50,7 +77,7 @@ export default function NovoEventoModal({ onClose, onEventoCreated, dataPadrao }
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-8">
-        <h2 className="text-3xl font-bold text-slate-900 mb-6">Novo Evento</h2>
+        <h2 className="text-3xl font-bold text-slate-900 mb-6">{isEditando ? 'Editar Evento' : 'Novo Evento'}</h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
@@ -171,7 +198,7 @@ export default function NovoEventoModal({ onClose, onEventoCreated, dataPadrao }
               disabled={loading}
               className="flex-1 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-slate-400 transition shadow-sm"
             >
-              {loading ? 'Criando...' : 'Criar Evento'}
+              {loading ? 'Salvando...' : isEditando ? 'Salvar Alterações' : 'Criar Evento'}
             </button>
             <button
               type="button"
