@@ -10,7 +10,7 @@ import { extractPDFData, consolidarDados } from '@/lib/pdf-processor'
 
 interface Cliente {
   id: string
-  nome: string
+  nome_razao_social: string
 }
 
 interface RelatorioData {
@@ -48,8 +48,8 @@ export default function RelatoriosPage() {
 
         const { data } = await supabase
           .from('clientes')
-          .select('id, nome')
-          .order('nome')
+          .select('id, nome_razao_social')
+          .order('nome_razao_social')
 
         if (data) setClientes(data)
       } catch (err) {
@@ -84,7 +84,7 @@ export default function RelatoriosPage() {
         Object.assign(dadosExtraidos, dados)
       }
 
-      const clienteNome = clientes.find(c => c.id === clienteSelecionado)?.nome || ''
+      const clienteNome = clientes.find(c => c.id === clienteSelecionado)?.nome_razao_social || ''
       const periodoStr = periodo === 'mes'
         ? `${String(mes).padStart(2, '0')}/${ano}`
         : `${ano}`
@@ -174,7 +174,7 @@ export default function RelatoriosPage() {
                 >
                   <option value="">Selecione um cliente</option>
                   {clientes.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nome}</option>
+                    <option key={c.id} value={c.id}>{c.nome_razao_social}</option>
                   ))}
                 </select>
               </div>
