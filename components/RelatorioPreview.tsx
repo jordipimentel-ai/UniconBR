@@ -1,3 +1,8 @@
+interface FaturamentoMes {
+  mes: string
+  valor: number
+}
+
 interface RelatorioPreviewProps {
   relatorio: {
     cliente: string
@@ -8,6 +13,7 @@ interface RelatorioPreviewProps {
     impostos: number
     aliquota: number
     saldoLiquido: number
+    historicoFaturamento?: FaturamentoMes[]
     detalhes: any
   }
 }
@@ -25,6 +31,15 @@ export default function RelatorioPreview({ relatorio }: RelatorioPreviewProps) {
     if (valor > 10000) return 'text-green-600'
     return 'text-gray-900'
   }
+
+  const formatMes = (mes: string) => {
+    const [m, y] = mes.split('/')
+    const nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    return `${nomes[parseInt(m, 10) - 1]}/${y.slice(2)}`
+  }
+
+  const historico = relatorio.historicoFaturamento || []
+  const maiorValor = Math.max(...historico.map((h) => h.valor), 1)
 
   return (
     <div id="relatorio-preview" className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 space-y-8">
@@ -149,6 +164,33 @@ export default function RelatorioPreview({ relatorio }: RelatorioPreviewProps) {
           </table>
         </div>
       </div>
+
+      {/* Histórico de Faturamento */}
+      {historico.length > 0 && (
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">FATURAMENTO DOS ÚLTIMOS {historico.length} MESES</h3>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+            <div className="flex items-end justify-between gap-3" style={{ height: '160px' }}>
+              {historico.map((item) => {
+                const alturaPercentual = Math.max((item.valor / maiorValor) * 100, 2)
+                const ehMesAtual = item.mes === relatorio.periodo
+                return (
+                  <div key={item.mes} className="flex-1 flex flex-col items-center justify-end h-full">
+                    <span className="text-xs font-semibold text-gray-700 mb-1 whitespace-nowrap">
+                      {formatCurrency(item.valor).replace('R$', '').trim()}
+                    </span>
+                    <div
+                      className={`w-full rounded-t ${ehMesAtual ? 'bg-blue-600' : 'bg-blue-300'}`}
+                      style={{ height: `${alturaPercentual}%`, minHeight: '4px' }}
+                    />
+                    <span className="text-xs text-gray-600 mt-2 font-medium">{formatMes(item.mes)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Resumo Final */}
       <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">

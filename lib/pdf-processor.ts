@@ -72,6 +72,30 @@ function matchDoisValoresAposLabel(text: string, label: string, maxGap1 = 200, m
   return match ? [parseValorBR(match[1]), parseValorBR(match[2])] : null
 }
 
+export interface FaturamentoMes {
+  mes: string
+  valor: number
+}
+
+// Seção "2.2.1) Mercado Interno" traz o faturamento (Receita Bruta) dos meses
+// anteriores em pares "MM/AAAA valor", um após o outro
+function extractHistoricoReceitas(text: string): FaturamentoMes[] {
+  const inicio = text.search(/2\.2\.1\)\s*Mercado\s+Interno/i)
+  if (inicio === -1) return []
+
+  const fimRelativo = text.slice(inicio).search(/2\.2\.2\)\s*Mercado\s+Externo|2\.3\)/i)
+  const fim = fimRelativo === -1 ? text.length : inicio + fimRelativo
+  const trecho = text.slice(inicio, fim)
+
+  const historico: FaturamentoMes[] = []
+  const re = /(\d{2}\/\d{4})[^\d]{0,10}?([\d]{1,3}(?:\.\d{3})*,\d{2})/g
+  let match
+  while ((match = re.exec(trecho)) !== null) {
+    historico.push({ mes: match[1], valor: parseValorBR(match[2]) })
+  }
+  return historico
+}
+
 // PGDAS-D Declaração: bloco "2.6) Resumo da Declaração" traz Receita Bruta
 // Auferida e Valor Total do Débito Declarado em sequência, um logo após o outro
 function extractPGDASDeclaracaoData(text: string) {
@@ -94,7 +118,9 @@ function extractPGDASDeclaracaoData(text: string) {
     if (rpa) faturamento = parseValorBR(rpa[3] || rpa[1])
   }
 
-  return { faturamento, impostoTotal }
+  const historico = extractHistoricoReceitas(text)
+
+  return { faturamento, impostoTotal, historico }
 }
 
 // Recibo de Entrega do PGDAS-D: período e número da apuração (também números)
@@ -137,6 +163,23 @@ function extractImpostosGenericos(text: string) {
   return impostos
 }
 
+function chaveOrdenacaoMes(mes: string): string {
+  const [m, y] = mes.split('/')
+  return `${y}-${m}`
+}
+
+// Junta o histórico de meses anteriores (vindo da Declaração do PGDAS) com o
+// faturamento do próprio mês do relatório, ordena e mantém só os últimos 6
+function montarHistoricoSeisMeses(historicoAnterior: FaturamentoMes[], periodo: string, faturamento: number): FaturamentoMes[] {
+  const meses = [...historicoAnterior]
+
+  if (periodo.includes('/') && faturamento > 0 && !meses.some((m) => m.mes === periodo)) {
+    meses.push({ mes: periodo, valor: faturamento })
+  }
+
+  return meses.sort((a, b) => chaveOrdenacaoMes(a.mes).localeCompare(chaveOrdenacaoMes(b.mes))).slice(-6)
+}
+
 export function consolidarDados(dados: any, cliente: string, periodo: string) {
   const pgdas = dados.pgdasDeclaracao?.faturamento
     ? dados.pgdasDeclaracao
@@ -155,6 +198,8 @@ export function consolidarDados(dados: any, cliente: string, periodo: string) {
 
   const saldoLiquido = faturamento - (salarios + encargos + impostos)
 
+  const historicoFaturamento = montarHistoricoSeisMeses(dados.pgdasDeclaracao?.historico || [], periodo, faturamento)
+
   return {
     cliente,
     periodo,
@@ -164,6 +209,7 @@ export function consolidarDados(dados: any, cliente: string, periodo: string) {
     impostos,
     aliquota,
     saldoLiquido,
+    historicoFaturamento,
     detalhes: dados,
   }
 }

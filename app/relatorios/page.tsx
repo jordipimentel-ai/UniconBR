@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
 import UploadZone from '@/components/UploadZone'
 import RelatorioPreview from '@/components/RelatorioPreview'
-import { extractPDFData, consolidarDados } from '@/lib/pdf-processor'
+import { extractPDFData, consolidarDados, FaturamentoMes } from '@/lib/pdf-processor'
 
 interface Cliente {
   id: string
@@ -22,6 +22,7 @@ interface RelatorioData {
   impostos: number
   aliquota: number
   saldoLiquido: number
+  historicoFaturamento: FaturamentoMes[]
   detalhes: any
 }
 
@@ -30,6 +31,7 @@ interface RevisaoData {
   salarios: number
   encargos: number
   impostos: number
+  historicoFaturamento: FaturamentoMes[]
   detalhes: any
 }
 
@@ -119,6 +121,11 @@ export default function RelatoriosPage() {
 
     const aliquota = revisao.faturamento > 0 ? (revisao.impostos / revisao.faturamento) * 100 : 0
 
+    // Se o faturamento foi ajustado na revisão, reflete isso no mês atual do histórico
+    const historicoAtualizado = revisao.historicoFaturamento.map((item) =>
+      item.mes === periodoStr ? { ...item, valor: revisao.faturamento } : item
+    )
+
     setRelatorio({
       cliente: clienteNome,
       periodo: periodoStr,
@@ -128,6 +135,7 @@ export default function RelatoriosPage() {
       impostos: revisao.impostos,
       aliquota,
       saldoLiquido: revisao.faturamento - (revisao.salarios + revisao.encargos + revisao.impostos),
+      historicoFaturamento: historicoAtualizado,
       detalhes: revisao.detalhes,
     })
     setRevisao(null)
@@ -137,7 +145,7 @@ export default function RelatoriosPage() {
     if (!relatorio) return
 
     try {
-      const html2canvas = (await import('html2canvas')).default
+      const html2canvas = (await import('html2canvas-pro')).default
       const { default: jsPDF } = await import('jspdf')
       const element = document.getElementById('relatorio-preview')
       if (!element) return
