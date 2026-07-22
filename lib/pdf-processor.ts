@@ -77,9 +77,11 @@ function extractImpostosData(text: string) {
 }
 
 function extractValue(text: string, pattern: RegExp): number {
-  const match = text.match(new RegExp(pattern.source + '[:\\s]*R?\\$?\\s*([\\d.,]+)', pattern.flags))
+  // Layouts em tabela costumam ter texto entre o rótulo e o valor quando o PDF
+  // é convertido para texto corrido, então tolera até ~60 caracteres no meio.
+  const match = text.match(new RegExp(pattern.source + '[^\\d]{0,60}?R?\\$?\\s*([\\d]{1,3}(?:\\.\\d{3})*,\\d{2}|\\d+[.,]\\d{2})', pattern.flags))
   if (match && match[1]) {
-    return parseFloat(match[1].replace('.', '').replace(',', '.'))
+    return parseFloat(match[1].replace(/\./g, '').replace(',', '.'))
   }
   return 0
 }

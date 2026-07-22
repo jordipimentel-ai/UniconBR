@@ -24,6 +24,14 @@ interface RelatorioData {
   detalhes: any
 }
 
+interface RevisaoData {
+  faturamento: number
+  salarios: number
+  encargos: number
+  impostos: number
+  detalhes: any
+}
+
 export default function RelatoriosPage() {
   const router = useRouter()
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -32,6 +40,7 @@ export default function RelatoriosPage() {
   const [mes, setMes] = useState(new Date().getMonth() + 1)
   const [ano, setAno] = useState(new Date().getFullYear())
   const [arquivos, setArquivos] = useState<File[]>([])
+  const [revisao, setRevisao] = useState<RevisaoData | null>(null)
   const [relatorio, setRelatorio] = useState<RelatorioData | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingClientes, setLoadingClientes] = useState(true)
@@ -89,14 +98,35 @@ export default function RelatoriosPage() {
         ? `${String(mes).padStart(2, '0')}/${ano}`
         : `${ano}`
 
-      const relatorioData = consolidarDados(dadosExtraidos, clienteNome, periodoStr)
-      setRelatorio(relatorioData)
+      const { saldoLiquido, ...extraido } = consolidarDados(dadosExtraidos, clienteNome, periodoStr)
+      setRevisao(extraido)
     } catch (err: any) {
       console.error('Erro ao gerar relatório:', err)
       setErro(err.message || 'Erro ao processar arquivos')
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleConfirmarRevisao() {
+    if (!revisao) return
+
+    const clienteNome = clientes.find(c => c.id === clienteSelecionado)?.nome_razao_social || ''
+    const periodoStr = periodo === 'mes'
+      ? `${String(mes).padStart(2, '0')}/${ano}`
+      : `${ano}`
+
+    setRelatorio({
+      cliente: clienteNome,
+      periodo: periodoStr,
+      faturamento: revisao.faturamento,
+      salarios: revisao.salarios,
+      encargos: revisao.encargos,
+      impostos: revisao.impostos,
+      saldoLiquido: revisao.faturamento - (revisao.salarios + revisao.encargos + revisao.impostos),
+      detalhes: revisao.detalhes,
+    })
+    setRevisao(null)
   }
 
   async function handleBaixarPDF() {
@@ -262,6 +292,75 @@ export default function RelatoriosPage() {
                 </button>
               </div>
             </div>
+
+            {revisao && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Revisar valores antes de gerar</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Os valores abaixo foram extraídos automaticamente dos PDFs e podem estar incompletos ou incorretos — confira e ajuste o que for necessário antes de confirmar.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Faturamento (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={revisao.faturamento}
+                      onChange={(e) => setRevisao({ ...revisao, faturamento: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Salários (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={revisao.salarios}
+                      onChange={(e) => setRevisao({ ...revisao, salarios: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Encargos (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={revisao.encargos}
+                      onChange={(e) => setRevisao({ ...revisao, encargos: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Impostos e Taxas (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={revisao.impostos}
+                      onChange={(e) => setRevisao({ ...revisao, impostos: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <button
+                    onClick={handleConfirmarRevisao}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
+                  >
+                    ✓ Confirmar e Gerar Relatório
+                  </button>
+                  <button
+                    onClick={() => setRevisao(null)}
+                    className="px-6 py-2 bg-gray-400 text-white font-medium rounded-lg hover:bg-gray-500 transition"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
 
             {relatorio && (
               <div className="space-y-4">
