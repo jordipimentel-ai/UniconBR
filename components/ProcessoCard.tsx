@@ -1,5 +1,7 @@
 'use client'
 
+import { parseDataLocal, formatDataLocal } from '@/lib/date-utils'
+
 interface ProcessoCardProps {
   id: string
   cliente: string
@@ -26,7 +28,7 @@ export default function ProcessoCard({
   onClick,
 }: ProcessoCardProps) {
   const diasAteVencimento = Math.ceil(
-    (new Date(prazo).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+    (parseDataLocal(prazo).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
   )
 
   const getUrgenciaColor = () => {
@@ -113,7 +115,7 @@ export default function ProcessoCard({
       </div>
 
       <span className="text-xs text-gray-500">
-        {new Date(prazo).toLocaleDateString('pt-BR')}
+        {formatDataLocal(prazo)}
       </span>
     </div>
   )

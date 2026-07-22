@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import NovoEventoModal from './NovoEventoModal'
 import { deleteEvento, RepetirEvento } from '@/lib/event-management'
+import { parseDataLocal } from '@/lib/date-utils'
 
 interface Evento {
   id: string
@@ -22,6 +23,7 @@ interface Evento {
 interface CalendarProps {
   showNewEventButton?: boolean
 }
+
 
 export default function Calendar({ showNewEventButton = false }: CalendarProps) {
   const [mesAtual, setMesAtual] = useState(new Date())
@@ -68,8 +70,8 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
       // Processar eventos
       if (eventosDb) {
         eventosDb.forEach((e: any) => {
-          const dataOriginal = new Date(e.data)
-          let dataAtual = new Date(e.data)
+          const dataOriginal = parseDataLocal(e.data)
+          let dataAtual = parseDataLocal(e.data)
 
           if (dataAtual >= primeirodia && dataAtual <= ultimodia) {
             eventosExpandidos.push({
@@ -121,7 +123,7 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
       if (tarefasDb) {
         tarefasDb.forEach((t: any) => {
           if (!t.prazo) return
-          const dataTarefa = new Date(t.prazo)
+          const dataTarefa = parseDataLocal(t.prazo)
           if (dataTarefa >= primeirodia && dataTarefa <= ultimodia) {
             const responsavel = t.user_id ? usuariosMap.get(t.user_id) || 'Não atribuído' : 'Não atribuído'
             eventosExpandidos.push({

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
 import NovoTarefaModal from '@/components/NovoTarefaModal'
+import { formatDataLocal } from '@/lib/date-utils'
 
 interface Tarefa {
   id: string
@@ -90,7 +91,7 @@ export default function TarefasPage() {
   )
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('pt-BR')
+    return formatDataLocal(date)
   }
 
   if (loading) {
