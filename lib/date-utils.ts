@@ -11,3 +11,17 @@ export function parseDataLocal(dataStr: string): Date {
 export function formatDataLocal(dataStr: string): string {
   return parseDataLocal(dataStr).toLocaleDateString('pt-BR')
 }
+
+const MESES_POR_EXTENSO = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
+// Ex.: parseDataLocal('2026-05-25') -> "25 de Maio de 2026"
+export function formatDataPorExtenso(data: Date): string {
+  return `${data.getDate()} de ${MESES_POR_EXTENSO[data.getMonth()]} de ${data.getFullYear()}`
+}
+
+export function nomeMesPorExtenso(mesIndex: number): string {
+  return MESES_POR_EXTENSO[mesIndex] || ''
+}

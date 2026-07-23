@@ -119,8 +119,17 @@ function extractPGDASDeclaracaoData(text: string) {
   }
 
   const historico = extractHistoricoReceitas(text)
+  const periodoAtual = extractPeriodoApuracao(text)
 
-  return { faturamento, impostoTotal, historico }
+  return { faturamento, impostoTotal, historico, periodoAtual }
+}
+
+// "Período de Apuração: 01/06/2026 a 30/06/2026" -> extrai "06/2026", o mês a
+// que pertence o faturamento (RPA) desta declaração — não incluído no histórico
+function extractPeriodoApuracao(text: string): string | null {
+  const re = new RegExp(labelToRegexSource('Período de Apuração') + `[^\\d]{0,10}?\\d{2}\\/(\\d{2})\\/(\\d{4})`, 'i')
+  const match = text.match(re)
+  return match ? `${match[1]}/${match[2]}` : null
 }
 
 // Recibo de Entrega do PGDAS-D: período e número da apuração (também números)
@@ -178,6 +187,38 @@ function montarHistoricoSeisMeses(historicoAnterior: FaturamentoMes[], periodo: 
   }
 
   return meses.sort((a, b) => chaveOrdenacaoMes(a.mes).localeCompare(chaveOrdenacaoMes(b.mes))).slice(-6)
+}
+
+export interface DeclaracaoExtraida {
+  faturamento: number
+  historico: FaturamentoMes[]
+  periodoAtual: string | null
+}
+
+// Monta o ano completo (Jan-Dez) a partir de uma ou mais Declarações do PGDAS.
+// Cada declaração já traz até ~10 meses anteriores no seu próprio histórico,
+// então normalmente um único arquivo recente cobre quase o ano inteiro; meses
+// sem dado nenhum voltam com valor 0 para o usuário revisar/preencher na mão.
+export function montarAnoFaturamento(declaracoes: DeclaracaoExtraida[], ano: number): FaturamentoMes[] {
+  const mapa = new Map<string, number>()
+
+  declaracoes.forEach((d) => {
+    d.historico.forEach((h) => {
+      if (h.valor > 0 && (!mapa.has(h.mes) || mapa.get(h.mes) === 0)) {
+        mapa.set(h.mes, h.valor)
+      }
+    })
+    if (d.periodoAtual && d.faturamento > 0) {
+      mapa.set(d.periodoAtual, d.faturamento)
+    }
+  })
+
+  const meses: FaturamentoMes[] = []
+  for (let m = 1; m <= 12; m++) {
+    const chave = `${String(m).padStart(2, '0')}/${ano}`
+    meses.push({ mes: chave, valor: mapa.get(chave) || 0 })
+  }
+  return meses
 }
 
 export function consolidarDados(dados: any, cliente: string, periodo: string) {

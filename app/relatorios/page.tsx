@@ -6,11 +6,15 @@ import { supabase } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
 import UploadZone from '@/components/UploadZone'
 import RelatorioPreview from '@/components/RelatorioPreview'
+import DeclaracaoFaturamentoForm, { DeclaracaoFaturamentoData } from '@/components/DeclaracaoFaturamentoForm'
+import DeclaracaoFaturamentoPreview from '@/components/DeclaracaoFaturamentoPreview'
 import { extractPDFData, consolidarDados, FaturamentoMes } from '@/lib/pdf-processor'
+import { exportarElementoParaPDF } from '@/lib/pdf-export'
 
 interface Cliente {
   id: string
   nome_razao_social: string
+  cpf_cnpj?: string
 }
 
 interface RelatorioData {
@@ -37,6 +41,7 @@ interface RevisaoData {
 
 export default function RelatoriosPage() {
   const router = useRouter()
+  const [tipoRelatorio, setTipoRelatorio] = useState<'financeiro' | 'declaracao'>('financeiro')
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [clienteSelecionado, setClienteSelecionado] = useState('')
   const [periodo, setPeriodo] = useState('mes')
@@ -45,6 +50,7 @@ export default function RelatoriosPage() {
   const [arquivos, setArquivos] = useState<File[]>([])
   const [revisao, setRevisao] = useState<RevisaoData | null>(null)
   const [relatorio, setRelatorio] = useState<RelatorioData | null>(null)
+  const [declaracao, setDeclaracao] = useState<DeclaracaoFaturamentoData | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingClientes, setLoadingClientes] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -60,7 +66,7 @@ export default function RelatoriosPage() {
 
         const { data } = await supabase
           .from('clientes')
-          .select('id, nome_razao_social')
+          .select('id, nome_razao_social, cpf_cnpj')
           .order('nome_razao_social')
 
         if (data) setClientes(data)
@@ -144,70 +150,21 @@ export default function RelatoriosPage() {
   async function handleBaixarPDF() {
     if (!relatorio) return
 
-    try {
-      const html2canvas = (await import('html2canvas-pro')).default
-      const { default: jsPDF } = await import('jspdf')
-      const element = document.getElementById('relatorio-preview')
-      if (!element) return
+    const { success, error } = await exportarElementoParaPDF(
+      'relatorio-preview',
+      `relatorio-${relatorio.cliente}-${relatorio.periodo.replace('/', '_')}.pdf`
+    )
+    if (!success) setErro(error || 'Erro ao gerar PDF')
+  }
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        // Força as dimensões exatas do elemento — sem isso, o html2canvas
-        // pode calcular uma altura muito maior que a real quando há algum
-        // elemento "position: sticky" em outro lugar da página (o cabeçalho),
-        // gerando um PDF com dezenas/centenas de páginas em branco
-        width: element.offsetWidth,
-        height: element.scrollHeight,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
-      })
+  async function handleBaixarDeclaracaoPDF() {
+    if (!declaracao) return
 
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      })
-
-      const margem = 10
-      const larguraPagina = pdf.internal.pageSize.getWidth()
-      const alturaPagina = pdf.internal.pageSize.getHeight()
-      const larguraUtil = larguraPagina - margem * 2
-      const alturaUtil = alturaPagina - margem * 2
-
-      const imgData = canvas.toDataURL('image/png')
-      const imgWidth = larguraUtil
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-
-      if (imgHeight <= alturaUtil) {
-        // Cabe inteiro em uma única página
-        pdf.addImage(imgData, 'PNG', margem, margem, imgWidth, imgHeight)
-      } else {
-        // Divide em páginas, com um limite de segurança para nunca gerar
-        // um PDF gigante caso a altura capturada esteja incorreta
-        const MAX_PAGINAS = 6
-        let heightLeft = imgHeight
-        let position = margem
-        let paginas = 1
-
-        pdf.addImage(imgData, 'PNG', margem, position, imgWidth, imgHeight)
-        heightLeft -= alturaUtil
-
-        while (heightLeft > 0 && paginas < MAX_PAGINAS) {
-          position = margem - (imgHeight - heightLeft)
-          pdf.addPage()
-          pdf.addImage(imgData, 'PNG', margem, position, imgWidth, imgHeight)
-          heightLeft -= alturaUtil
-          paginas++
-        }
-      }
-
-      pdf.save(`relatorio-${relatorio.cliente}-${relatorio.periodo}.pdf`)
-    } catch (err) {
-      console.error('Erro ao baixar PDF:', err)
-      setErro('Erro ao gerar PDF')
-    }
+    const { success, error } = await exportarElementoParaPDF(
+      'declaracao-preview',
+      `declaracao-faturamento-${declaracao.clienteNome}-${declaracao.ano}.pdf`
+    )
+    if (!success) setErro(error || 'Erro ao gerar PDF')
   }
 
   if (loadingClientes) {
@@ -225,12 +182,37 @@ export default function RelatoriosPage() {
       <div className="ml-64">
         <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
           <div className="px-8 py-6">
-            <h1 className="text-3xl font-bold text-gray-900">Relatórios Financeiros</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
           </div>
         </header>
 
         <main className="px-8 py-8">
           <div className="max-w-6xl mx-auto space-y-6">
+            <div className="flex gap-2 bg-white rounded-lg shadow-sm border border-gray-200 p-2">
+              <button
+                onClick={() => setTipoRelatorio('financeiro')}
+                className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition ${
+                  tipoRelatorio === 'financeiro'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                📊 Relatório Financeiro
+              </button>
+              <button
+                onClick={() => setTipoRelatorio('declaracao')}
+                className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition ${
+                  tipoRelatorio === 'declaracao'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                📋 Declaração de Faturamento
+              </button>
+            </div>
+
+            {tipoRelatorio === 'financeiro' && (
+            <>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Cliente *</label>
@@ -424,6 +406,42 @@ export default function RelatoriosPage() {
                 </div>
                 <RelatorioPreview relatorio={relatorio} />
               </div>
+            )}
+            </>
+            )}
+
+            {tipoRelatorio === 'declaracao' && (
+              <>
+                {!declaracao && (
+                  <DeclaracaoFaturamentoForm clientes={clientes} onGerar={setDeclaracao} />
+                )}
+
+                {erro && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                    {erro}
+                  </div>
+                )}
+
+                {declaracao && (
+                  <div className="space-y-4">
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleBaixarDeclaracaoPDF}
+                        className="px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition"
+                      >
+                        📥 Baixar PDF
+                      </button>
+                      <button
+                        onClick={() => setDeclaracao(null)}
+                        className="px-6 py-2 bg-gray-400 text-white font-medium rounded-lg hover:bg-gray-500 transition"
+                      >
+                        ← Voltar
+                      </button>
+                    </div>
+                    <DeclaracaoFaturamentoPreview declaracao={declaracao} />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </main>
