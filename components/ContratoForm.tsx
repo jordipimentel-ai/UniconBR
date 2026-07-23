@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ContratoTemplate, CampoSchema, ValoresCampos, ValoresPartes, DadosContrato } from '@/lib/contratos'
+import { getEscritorio, Escritorio } from '@/lib/escritorio'
 
 interface ContratoFormProps {
   template: ContratoTemplate
@@ -34,6 +35,27 @@ export default function ContratoForm({ template, onGerar }: ContratoFormProps) {
     return iniciais
   })
   const [erro, setErro] = useState<string | null>(null)
+  const [escritorio, setEscritorio] = useState<Escritorio | null>(null)
+
+  useEffect(() => {
+    getEscritorio().then(({ data }) => {
+      if (data) setEscritorio(data)
+    })
+  }, [])
+
+  function handleUsarDadosEscritorio(grupoKey: string) {
+    if (!escritorio) return
+    const lista = partes[grupoKey] || []
+    const nova = [...lista]
+    nova[0] = {
+      ...nova[0],
+      nome: escritorio.nome || nova[0]?.nome || '',
+      cnpj: escritorio.cnpj || nova[0]?.cnpj || '',
+      endereco: escritorio.endereco || nova[0]?.endereco || '',
+      representante_nome: escritorio.contador_nome || nova[0]?.representante_nome || '',
+    }
+    setPartes({ ...partes, [grupoKey]: nova })
+  }
 
   // Reseta o formulário sempre que o tipo de contrato muda
   useEffect(() => {
@@ -128,7 +150,18 @@ export default function ContratoForm({ template, onGerar }: ContratoFormProps) {
         const lista = partes[grupo.key] || []
         return (
           <div key={grupo.key} className="pt-4 border-t space-y-3">
-            <label className="block text-sm font-semibold text-gray-800">{grupo.label}</label>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-semibold text-gray-800">{grupo.label}</label>
+              {grupo.key === 'contratada' && escritorio && (
+                <button
+                  type="button"
+                  onClick={() => handleUsarDadosEscritorio(grupo.key)}
+                  className="text-xs px-3 py-1.5 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 transition"
+                >
+                  Usar dados do escritório
+                </button>
+              )}
+            </div>
             {lista.map((pessoa, idx) => (
               <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
                 <div className="flex justify-between items-center">

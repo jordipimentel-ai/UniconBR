@@ -1,7 +1,8 @@
 import { ContratoTemplate, texto, numero, formatMoeda, pessoas } from './types'
 
 function qualificacaoPJ(p: Record<string, any>): string {
-  let t = `${String(p.razao_social || '').toUpperCase()}, pessoa jurídica de direito privado, inscrita no CNPJ sob nº ${p.cnpj}, com sede em ${p.endereco}`
+  let t = `${String(p.razao_social || '').toUpperCase()}, pessoa jurídica de direito privado, inscrita no CNPJ sob nº ${p.cnpj}`
+  if (p.endereco) t += `, com sede em ${p.endereco}`
   if (p.representante_nome) {
     t += `, neste ato representada por ${p.representante_cargo ? `seu(sua) ${p.representante_cargo}, ` : ''}${p.representante_nome}${p.representante_cpf ? `, CPF nº ${p.representante_cpf}` : ''}`
   }

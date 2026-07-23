@@ -4,6 +4,7 @@ import { compraVendaTemplate } from './compraVenda'
 import { prestacaoServicoTemplate } from './prestacaoServico'
 import { alteracaoEITemplate } from './alteracaoEmpresarioIndividual'
 import { transformacaoEILtdaTemplate } from './transformacaoEILtda'
+import { servicoContabilTemplate } from './servicoContabil'
 
 export * from './types'
 
@@ -14,6 +15,11 @@ export interface CategoriaContrato {
 }
 
 export const CATEGORIAS: CategoriaContrato[] = [
+  {
+    id: 'clientes',
+    nome: 'Contratos com Clientes',
+    templates: [servicoContabilTemplate],
+  },
   {
     id: 'imoveis',
     nome: 'Imóveis',
