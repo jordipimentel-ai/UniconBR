@@ -16,11 +16,6 @@ export interface CategoriaContrato {
 
 export const CATEGORIAS: CategoriaContrato[] = [
   {
-    id: 'clientes',
-    nome: 'Contratos com Clientes',
-    templates: [servicoContabilTemplate],
-  },
-  {
     id: 'imoveis',
     nome: 'Imóveis',
     templates: [compraVendaTemplate, locacaoTemplate],
@@ -34,6 +29,11 @@ export const CATEGORIAS: CategoriaContrato[] = [
     id: 'juceal',
     nome: 'Alterações JUCEAL',
     templates: [alteracaoEITemplate, transformacaoEILtdaTemplate],
+  },
+  {
+    id: 'clientes',
+    nome: 'Contratos com Clientes',
+    templates: [servicoContabilTemplate],
   },
 ]
 
