@@ -195,11 +195,12 @@ export interface DeclaracaoExtraida {
   periodoAtual: string | null
 }
 
-// Monta o ano completo (Jan-Dez) a partir de uma ou mais Declarações do PGDAS.
-// Cada declaração já traz até ~10 meses anteriores no seu próprio histórico,
-// então normalmente um único arquivo recente cobre quase o ano inteiro; meses
-// sem dado nenhum voltam com valor 0 para o usuário revisar/preencher na mão.
-export function montarAnoFaturamento(declaracoes: DeclaracaoExtraida[], ano: number): FaturamentoMes[] {
+// Monta os meses pedidos (mesesAlvo, no formato "MM/AAAA") a partir de uma ou
+// mais Declarações do PGDAS. Cada declaração já traz até ~10 meses anteriores
+// no seu próprio histórico, então normalmente um único arquivo recente cobre
+// quase o período inteiro; meses sem dado nenhum voltam com valor 0 para o
+// usuário revisar/preencher na mão.
+export function montarPeriodoFaturamento(declaracoes: DeclaracaoExtraida[], mesesAlvo: string[]): FaturamentoMes[] {
   const mapa = new Map<string, number>()
 
   declaracoes.forEach((d) => {
@@ -213,12 +214,7 @@ export function montarAnoFaturamento(declaracoes: DeclaracaoExtraida[], ano: num
     }
   })
 
-  const meses: FaturamentoMes[] = []
-  for (let m = 1; m <= 12; m++) {
-    const chave = `${String(m).padStart(2, '0')}/${ano}`
-    meses.push({ mes: chave, valor: mapa.get(chave) || 0 })
-  }
-  return meses
+  return mesesAlvo.map((mes) => ({ mes, valor: mapa.get(mes) || 0 }))
 }
 
 export function consolidarDados(dados: any, cliente: string, periodo: string) {

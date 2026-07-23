@@ -162,7 +162,7 @@ export default function RelatoriosPage() {
 
     const { success, error } = await exportarElementoParaPDF(
       'declaracao-preview',
-      `declaracao-faturamento-${declaracao.clienteNome}-${declaracao.ano}.pdf`
+      `declaracao-faturamento-${declaracao.clienteNome}-${declaracao.periodoLabel}.pdf`
     )
     if (!success) setErro(error || 'Erro ao gerar PDF')
   }

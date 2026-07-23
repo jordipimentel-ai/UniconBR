@@ -25,3 +25,41 @@ export function formatDataPorExtenso(data: Date): string {
 export function nomeMesPorExtenso(mesIndex: number): string {
   return MESES_POR_EXTENSO[mesIndex] || ''
 }
+
+// Lista de chaves "MM/AAAA" de Janeiro a Dezembro de um ano
+export function gerarMesesDoAno(ano: number): string[] {
+  return Array.from({ length: 12 }, (_, i) => `${String(i + 1).padStart(2, '0')}/${ano}`)
+}
+
+// Lista de chaves "MM/AAAA" de Janeiro do anoInicial até Dezembro do ano seguinte (24 meses)
+export function gerarMesesDoisAnos(anoInicial: number): string[] {
+  return [...gerarMesesDoAno(anoInicial), ...gerarMesesDoAno(anoInicial + 1)]
+}
+
+// Lista de chaves "MM/AAAA" dos últimos 12 meses terminando no mês atual
+export function gerarUltimos12Meses(): string[] {
+  const hoje = new Date()
+  const meses: string[] = []
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1)
+    meses.push(`${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`)
+  }
+  return meses
+}
+
+// Descreve um intervalo de meses "MM/AAAA" (assume que já vem ordenado) em
+// texto por extenso, ex.: "Janeiro a Dezembro de 2025" ou
+// "Agosto de 2025 a Julho de 2026" quando cruza o ano
+export function descreverPeriodoMeses(mesesChaves: string[]): string {
+  if (mesesChaves.length === 0) return ''
+
+  const [mmIni, anoIni] = mesesChaves[0].split('/')
+  const [mmFim, anoFim] = mesesChaves[mesesChaves.length - 1].split('/')
+  const nomeIni = nomeMesPorExtenso(parseInt(mmIni, 10) - 1)
+  const nomeFim = nomeMesPorExtenso(parseInt(mmFim, 10) - 1)
+
+  if (anoIni === anoFim) {
+    return `${nomeIni} a ${nomeFim} de ${anoIni}`
+  }
+  return `${nomeIni} de ${anoIni} a ${nomeFim} de ${anoFim}`
+}

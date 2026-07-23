@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import UploadZone from './UploadZone'
-import { extractPDFData, montarAnoFaturamento, DeclaracaoExtraida } from '@/lib/pdf-processor'
-import { nomeMesPorExtenso } from '@/lib/date-utils'
+import { extractPDFData, montarPeriodoFaturamento, DeclaracaoExtraida } from '@/lib/pdf-processor'
+import { nomeMesPorExtenso, gerarMesesDoAno, gerarMesesDoisAnos, gerarUltimos12Meses } from '@/lib/date-utils'
+import { getEscritorio, Escritorio } from '@/lib/escritorio'
 
 interface Cliente {
   id: string
@@ -19,11 +20,12 @@ interface FaturamentoMes {
 export interface DeclaracaoFaturamentoData {
   clienteNome: string
   clienteCnpj: string
-  ano: number
+  periodoLabel: string
   cidade: string
   dataEmissao: string
   contadorNome: string
   contadorCRC: string
+  logoUrl?: string | null
   meses: FaturamentoMes[]
 }
 
@@ -32,21 +34,28 @@ interface DeclaracaoFaturamentoFormProps {
   onGerar: (dados: DeclaracaoFaturamentoData) => void
 }
 
+type TipoPeriodo = 'ano' | 'dois_anos' | 'ultimos_12'
+
 const STORAGE_KEY = 'uniconbr_declaracao_contador'
+
+function gerarMesesVazios(mesesChaves: string[]): FaturamentoMes[] {
+  return mesesChaves.map((mes) => ({ mes, valor: 0 }))
+}
 
 export default function DeclaracaoFaturamentoForm({ clientes, onGerar }: DeclaracaoFaturamentoFormProps) {
   const [clienteSelecionado, setClienteSelecionado] = useState('')
-  const [ano, setAno] = useState(new Date().getFullYear())
+  const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>('ano')
+  const [anoInicial, setAnoInicial] = useState(new Date().getFullYear())
   const [cidade, setCidade] = useState('')
   const [dataEmissao, setDataEmissao] = useState(new Date().toISOString().split('T')[0])
   const [contadorNome, setContadorNome] = useState('')
   const [contadorCRC, setContadorCRC] = useState('')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [arquivos, setArquivos] = useState<File[]>([])
-  const [meses, setMeses] = useState<FaturamentoMes[]>(
-    Array.from({ length: 12 }, (_, i) => ({ mes: `${String(i + 1).padStart(2, '0')}/${new Date().getFullYear()}`, valor: 0 }))
-  )
+  const [meses, setMeses] = useState<FaturamentoMes[]>(gerarMesesVazios(gerarMesesDoAno(new Date().getFullYear())))
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [escritorio, setEscritorio] = useState<Escritorio | null>(null)
 
   // Lembra os dados do contador entre sessões, já que raramente mudam
   useEffect(() => {
@@ -59,15 +68,34 @@ export default function DeclaracaoFaturamentoForm({ clientes, onGerar }: Declara
         setContadorCRC(dados.contadorCRC || '')
       } catch {}
     }
+
+    getEscritorio().then(({ data }) => {
+      if (data) setEscritorio(data)
+    })
   }, [])
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ cidade, contadorNome, contadorCRC }))
   }, [cidade, contadorNome, contadorCRC])
 
+  function mesesAlvoAtual(): string[] {
+    if (tipoPeriodo === 'ano') return gerarMesesDoAno(anoInicial)
+    if (tipoPeriodo === 'dois_anos') return gerarMesesDoisAnos(anoInicial)
+    return gerarUltimos12Meses()
+  }
+
   useEffect(() => {
-    setMeses(Array.from({ length: 12 }, (_, i) => ({ mes: `${String(i + 1).padStart(2, '0')}/${ano}`, valor: 0 })))
-  }, [ano])
+    setMeses(gerarMesesVazios(mesesAlvoAtual()))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoPeriodo, anoInicial])
+
+  function handleUsarDadosEscritorio() {
+    if (!escritorio) return
+    if (escritorio.cidade) setCidade(escritorio.cidade)
+    if (escritorio.contador_nome) setContadorNome(escritorio.contador_nome)
+    if (escritorio.contador_crc) setContadorCRC(escritorio.contador_crc)
+    if (escritorio.logo_url) setLogoUrl(escritorio.logo_url)
+  }
 
   async function handlePreencherComPGDAS() {
     if (arquivos.length === 0) {
@@ -94,16 +122,16 @@ export default function DeclaracaoFaturamentoForm({ clientes, onGerar }: Declara
         return
       }
 
-      const anoCompleto = montarAnoFaturamento(declaracoes, ano)
-      setMeses(anoCompleto)
+      const periodoCompleto = montarPeriodoFaturamento(declaracoes, mesesAlvoAtual())
+      setMeses(periodoCompleto)
 
-      const faltantes = anoCompleto.filter((m) => m.valor === 0)
+      const faltantes = periodoCompleto.filter((m) => m.valor === 0)
       if (faltantes.length > 0) {
         const nomesFaltantes = faltantes
-          .map((m) => nomeMesPorExtenso(parseInt(m.mes.split('/')[0], 10) - 1))
+          .map((m) => `${nomeMesPorExtenso(parseInt(m.mes.split('/')[0], 10) - 1)}/${m.mes.split('/')[1]}`)
           .join(', ')
         setErro(
-          `Cada Declaração do PGDAS-D só traz cerca de 10 meses de histórico, então nem todo o ano coube em um único arquivo. ` +
+          `Cada Declaração do PGDAS-D só traz cerca de 10 meses de histórico, então nem todo o período coube em um único arquivo. ` +
           `Faltam: ${nomesFaltantes}. Anexe também uma declaração de outro mês para preencher automaticamente, ` +
           `ou complete esses meses manualmente na tabela abaixo.`
         )
@@ -132,14 +160,20 @@ export default function DeclaracaoFaturamentoForm({ clientes, onGerar }: Declara
       return
     }
 
+    const periodoLabel =
+      tipoPeriodo === 'ano' ? `${anoInicial}` :
+      tipoPeriodo === 'dois_anos' ? `${anoInicial}-${anoInicial + 1}` :
+      'ultimos-12-meses'
+
     onGerar({
       clienteNome: cliente.nome_razao_social,
       clienteCnpj: cliente.cpf_cnpj || '',
-      ano,
+      periodoLabel,
       cidade,
       dataEmissao,
       contadorNome,
       contadorCRC,
+      logoUrl,
       meses,
     })
   }
@@ -162,18 +196,48 @@ export default function DeclaracaoFaturamentoForm({ clientes, onGerar }: Declara
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Ano *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Período *</label>
           <select
-            value={ano}
-            onChange={(e) => setAno(parseInt(e.target.value))}
+            value={tipoPeriodo}
+            onChange={(e) => setTipoPeriodo(e.target.value as TipoPeriodo)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
-            {Array.from({ length: 5 }, (_, i) => {
-              const year = new Date().getFullYear() - i
-              return <option key={year} value={year}>{year}</option>
-            })}
+            <option value="ano">Um ano (Jan-Dez)</option>
+            <option value="dois_anos">Dois anos (24 meses)</option>
+            <option value="ultimos_12">Últimos 12 meses</option>
           </select>
         </div>
+        {tipoPeriodo !== 'ultimos_12' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {tipoPeriodo === 'dois_anos' ? 'Ano Inicial *' : 'Ano *'}
+            </label>
+            <select
+              value={anoInicial}
+              onChange={(e) => setAnoInicial(parseInt(e.target.value))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            >
+              {Array.from({ length: 6 }, (_, i) => {
+                const year = new Date().getFullYear() - i
+                return <option key={year} value={year}>{year}</option>
+              })}
+            </select>
+          </div>
+        )}
+        {tipoPeriodo === 'ultimos_12' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Data de Emissão *</label>
+            <input
+              type="date"
+              value={dataEmissao}
+              onChange={(e) => setDataEmissao(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
+        )}
+      </div>
+
+      {tipoPeriodo !== 'ultimos_12' && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Data de Emissão *</label>
           <input
@@ -183,7 +247,23 @@ export default function DeclaracaoFaturamentoForm({ clientes, onGerar }: Declara
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
         </div>
-      </div>
+      )}
+
+      {escritorio && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between gap-4">
+          <p className="text-sm text-blue-800">
+            Há dados de escritório cadastrados em <strong>Meu Escritório</strong>. Deseja usá-los para preencher
+            cidade, contador responsável, CRC e logotipo?
+          </p>
+          <button
+            type="button"
+            onClick={handleUsarDadosEscritorio}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition whitespace-nowrap"
+          >
+            Usar dados do escritório
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-4 pt-4 border-t">
         <div>
@@ -259,11 +339,12 @@ export default function DeclaracaoFaturamentoForm({ clientes, onGerar }: Declara
         </label>
         <div className="grid grid-cols-3 gap-3">
           {meses.map((m, idx) => {
-            const [mm] = m.mes.split('/')
+            const [mm, yyyy] = m.mes.split('/')
             return (
               <div key={m.mes}>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   {nomeMesPorExtenso(parseInt(mm, 10) - 1)}
+                  {meses.length > 12 && `/${yyyy}`}
                 </label>
                 <input
                   type="number"
