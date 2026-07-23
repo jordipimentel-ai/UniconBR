@@ -4,9 +4,16 @@ import { useState, useEffect } from 'react'
 import { ContratoTemplate, CampoSchema, ValoresCampos, ValoresPartes, DadosContrato } from '@/lib/contratos'
 import { getEscritorio, Escritorio } from '@/lib/escritorio'
 
+interface ClienteOpcao {
+  id: string
+  nome_razao_social: string
+  cpf_cnpj?: string
+}
+
 interface ContratoFormProps {
   template: ContratoTemplate
-  onGerar: (dados: DadosContrato) => void
+  onGerar: (dados: DadosContrato) => void | Promise<void>
+  clientesDisponiveis?: ClienteOpcao[]
 }
 
 function valoresIniciaisCampos(campos: CampoSchema[]): ValoresCampos {
@@ -25,7 +32,7 @@ function pessoaVazia(camposPessoa: CampoSchema[]): ValoresCampos {
   return p
 }
 
-export default function ContratoForm({ template, onGerar }: ContratoFormProps) {
+export default function ContratoForm({ template, onGerar, clientesDisponiveis = [] }: ContratoFormProps) {
   const [campos, setCampos] = useState<ValoresCampos>(() => valoresIniciaisCampos(template.campos))
   const [partes, setPartes] = useState<ValoresPartes>(() => {
     const iniciais: ValoresPartes = {}
@@ -53,6 +60,19 @@ export default function ContratoForm({ template, onGerar }: ContratoFormProps) {
       cnpj: escritorio.cnpj || nova[0]?.cnpj || '',
       endereco: escritorio.endereco || nova[0]?.endereco || '',
       representante_nome: escritorio.contadores?.[0]?.nome || nova[0]?.representante_nome || '',
+    }
+    setPartes({ ...partes, [grupoKey]: nova })
+  }
+
+  function handleSelecionarCliente(grupoKey: string, clienteId: string) {
+    const cliente = clientesDisponiveis.find((c) => c.id === clienteId)
+    if (!cliente) return
+    const lista = partes[grupoKey] || []
+    const nova = [...lista]
+    nova[0] = {
+      ...nova[0],
+      nome: cliente.nome_razao_social,
+      cnpj: cliente.cpf_cnpj || '',
     }
     setPartes({ ...partes, [grupoKey]: nova })
   }
@@ -162,6 +182,21 @@ export default function ContratoForm({ template, onGerar }: ContratoFormProps) {
                 </button>
               )}
             </div>
+            {grupo.key === 'contratante' && clientesDisponiveis.length > 0 && (
+              <select
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value) handleSelecionarCliente(grupo.key, e.target.value)
+                  e.target.value = ''
+                }}
+                className="w-full px-4 py-2 border border-blue-300 bg-blue-50 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+              >
+                <option value="">Selecionar cliente cadastrado (preenche nome e CNPJ/CPF)</option>
+                {clientesDisponiveis.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nome_razao_social}</option>
+                ))}
+              </select>
+            )}
             {lista.map((pessoa, idx) => (
               <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
                 <div className="flex justify-between items-center">

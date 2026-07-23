@@ -15,6 +15,13 @@ function qualificacaoParte(p: Record<string, any>): string {
   return t
 }
 
+function listaContadores(contadores: Record<string, any>[]): string {
+  const nomes = contadores.map((c) => `${c.nome}${c.crc ? ` (CRC ${c.crc})` : ''}`)
+  if (nomes.length === 0) return ''
+  if (nomes.length === 1) return nomes[0]
+  return `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`
+}
+
 export const servicoContabilTemplate: ContratoTemplate = {
   id: 'servico_contabil',
   categoria: 'clientes',
@@ -44,6 +51,9 @@ export const servicoContabilTemplate: ContratoTemplate = {
     { key: 'cidade', label: 'Cidade (assinatura)', tipo: 'texto', obrigatorio: true },
     { key: 'data_assinatura', label: 'Data de Assinatura', tipo: 'data', obrigatorio: true },
   ],
+  // "contratada" (o escritório) e seus contadores não aparecem aqui: são
+  // preenchidos automaticamente com os dados de "Meu Escritório" na página,
+  // não editáveis manualmente por este formulário genérico
   partes: [
     {
       key: 'contratante',
@@ -59,27 +69,23 @@ export const servicoContabilTemplate: ContratoTemplate = {
         { key: 'representante_cpf', label: 'CPF do Representante', tipo: 'texto' },
       ],
     },
-    {
-      key: 'contratada',
-      label: 'Contratada (Escritório)',
-      labelSingular: 'Contratada',
-      minimo: 1,
-      camposPessoa: [
-        { key: 'nome', label: 'Nome / Razão Social do Escritório', tipo: 'texto', obrigatorio: true },
-        { key: 'cnpj', label: 'CNPJ do Escritório', tipo: 'texto', obrigatorio: true },
-        { key: 'endereco', label: 'Endereço do Escritório', tipo: 'textarea' },
-        { key: 'representante_nome', label: 'Nome do Representante (pessoa física que assina)', tipo: 'texto', obrigatorio: true },
-        { key: 'representante_cpf', label: 'CPF do Representante', tipo: 'texto' },
-      ],
-    },
   ],
   gerarClausulas(dados) {
     const contratantes = pessoas(dados, 'contratante')
-    const contratadas = pessoas(dados, 'contratada')
+    const contratada = pessoas(dados, 'contratada')[0]
+    const contadores = pessoas(dados, 'contadores_escritorio')
     const clausulas: string[] = []
 
     contratantes.forEach((p) => clausulas.push(`CONTRATANTE: ${qualificacaoParte(p)}.`))
-    contratadas.forEach((p) => clausulas.push(`CONTRATADA: ${qualificacaoParte(p)}.`))
+
+    if (contratada) {
+      let qualificacaoContratada = `${String(contratada.nome || '').toUpperCase()}, pessoa jurídica de direito privado, inscrita no CNPJ sob nº ${contratada.cnpj}`
+      if (contratada.endereco) qualificacaoContratada += `, com sede em ${contratada.endereco}`
+      if (contadores.length > 0) {
+        qualificacaoContratada += `, neste ato representada por seu(s) contador(es) responsável(is) ${listaContadores(contadores)}`
+      }
+      clausulas.push(`CONTRATADA: ${qualificacaoContratada}.`)
+    }
 
     clausulas.push(
       `CLÁUSULA PRIMEIRA – DO OBJETO: O presente contrato tem por objeto a prestação, pela CONTRATADA à CONTRATANTE, dos serviços de contabilidade da empresa, incluindo, dentro da mensalidade prevista neste contrato, ${texto(dados, 'servicos_recorrentes')}.`
@@ -115,9 +121,14 @@ export const servicoContabilTemplate: ContratoTemplate = {
     return clausulas
   },
   gerarAssinaturas(dados) {
-    return [...pessoas(dados, 'contratante'), ...pessoas(dados, 'contratada')].map((p) => ({
+    const assinaturasContratante = pessoas(dados, 'contratante').map((p) => ({
       nome: String(p.nome || '').toUpperCase(),
       documento: p.cnpj ? `CNPJ: ${p.cnpj}` : p.cpf ? `CPF: ${p.cpf}` : undefined,
     }))
+    const assinaturasContadores = pessoas(dados, 'contadores_escritorio').map((c) => ({
+      nome: String(c.nome || '').toUpperCase(),
+      documento: c.crc ? `CRC: ${c.crc}` : undefined,
+    }))
+    return [...assinaturasContratante, ...assinaturasContadores]
   },
 }

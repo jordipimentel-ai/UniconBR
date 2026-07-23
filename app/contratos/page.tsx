@@ -8,6 +8,13 @@ import ContratoForm from '@/components/ContratoForm'
 import ContratoPreview from '@/components/ContratoPreview'
 import { CATEGORIAS, ContratoTemplate, DadosContrato } from '@/lib/contratos'
 import { exportarElementoParaPDF } from '@/lib/pdf-export'
+import { getEscritorio } from '@/lib/escritorio'
+
+interface ClienteOpcao {
+  id: string
+  nome_razao_social: string
+  cpf_cnpj?: string
+}
 
 export default function ContratosPage() {
   const router = useRouter()
@@ -16,17 +23,25 @@ export default function ContratosPage() {
   const [templateSelecionado, setTemplateSelecionado] = useState<ContratoTemplate | null>(null)
   const [dadosGerados, setDadosGerados] = useState<DadosContrato | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  const [clientes, setClientes] = useState<ClienteOpcao[]>([])
 
   useEffect(() => {
-    async function checkAuth() {
+    async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/auth')
         return
       }
+
+      const { data } = await supabase
+        .from('clientes')
+        .select('id, nome_razao_social, cpf_cnpj')
+        .order('nome_razao_social')
+
+      if (data) setClientes(data)
       setLoadingAuth(false)
     }
-    checkAuth()
+    init()
   }, [router])
 
   const categoriaAtual = CATEGORIAS.find((c) => c.id === categoriaSelecionada)
@@ -35,6 +50,31 @@ export default function ContratosPage() {
     setTemplateSelecionado(template)
     setDadosGerados(null)
     setErro(null)
+  }
+
+  async function handleGerar(dados: DadosContrato) {
+    if (templateSelecionado?.id === 'servico_contabil') {
+      const { data: escritorio, error: escritorioError } = await getEscritorio()
+
+      if (escritorioError || !escritorio) {
+        setErro('Cadastre os dados do escritório em "Meu Escritório" antes de gerar este contrato — a Contratada é preenchida automaticamente com esses dados.')
+        return
+      }
+      if (!escritorio.contadores || escritorio.contadores.length === 0) {
+        setErro('Cadastre pelo menos um Contador Responsável em "Meu Escritório" antes de gerar este contrato.')
+        return
+      }
+
+      dados.partes.contratada = [{
+        nome: escritorio.nome,
+        cnpj: escritorio.cnpj,
+        endereco: escritorio.endereco,
+      }]
+      dados.partes.contadores_escritorio = escritorio.contadores.map((c) => ({ nome: c.nome, crc: c.crc }))
+    }
+
+    setErro(null)
+    setDadosGerados(dados)
   }
 
   async function handleBaixarPDF() {
@@ -112,7 +152,8 @@ export default function ContratosPage() {
               <ContratoForm
                 key={templateSelecionado.id}
                 template={templateSelecionado}
-                onGerar={setDadosGerados}
+                onGerar={handleGerar}
+                clientesDisponiveis={clientes}
               />
             )}
 
