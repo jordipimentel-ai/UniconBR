@@ -16,6 +16,7 @@ export default function EscritorioPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [modoEdicao, setModoEdicao] = useState(false)
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -37,6 +38,7 @@ export default function EscritorioPage() {
       const { data, error } = await getEscritorio()
       if (error) {
         setErro(error)
+        setModoEdicao(true)
       } else if (data) {
         setEscritorioId(data.id)
         setLogoUrl(data.logo_url)
@@ -48,6 +50,9 @@ export default function EscritorioPage() {
           contador_nome: data.contador_nome || '',
           contador_crc: data.contador_crc || '',
         })
+      } else {
+        // Nenhum cadastro ainda: vai direto para o formulário de criação
+        setModoEdicao(true)
       }
       setLoading(false)
     }
@@ -97,8 +102,10 @@ export default function EscritorioPage() {
         setEscritorioId(data.id)
         setLogoUrl(data.logo_url)
         setLogoFile(null)
+        setLogoPreview(null)
       }
       setSucesso('Dados do escritório salvos com sucesso!')
+      setModoEdicao(false)
     } catch (err: any) {
       setErro(err.message || 'Erro ao salvar')
     } finally {
@@ -130,6 +137,60 @@ export default function EscritorioPage() {
 
         <main className="px-8 py-8">
           <div className="max-w-3xl mx-auto">
+            {erro && !modoEdicao && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-6">{erro}</div>
+            )}
+            {sucesso && !modoEdicao && (
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm mb-6">{sucesso}</div>
+            )}
+
+            {!modoEdicao && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+                <div className="flex items-center gap-6">
+                  <div className="w-24 h-24 border border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden shrink-0">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <span className="text-xs text-gray-400 text-center px-2">Sem logo</span>
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">{formData.nome || 'Escritório sem nome'}</h2>
+                    <p className="text-sm text-gray-600">CNPJ: {formData.cnpj || '—'}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t text-sm">
+                  <div>
+                    <p className="text-gray-500">Endereço</p>
+                    <p className="text-gray-900 font-medium">{formData.endereco || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Cidade</p>
+                    <p className="text-gray-900 font-medium">{formData.cidade || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Contador Responsável</p>
+                    <p className="text-gray-900 font-medium">{formData.contador_nome || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">CRC</p>
+                    <p className="text-gray-900 font-medium">{formData.contador_crc || '—'}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <button
+                    onClick={() => { setModoEdicao(true); setSucesso(null); setErro(null) }}
+                    className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
+                  >
+                    ✏️ Editar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {modoEdicao && (
             <form onSubmit={handleSalvar} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
               {erro && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{erro}</div>
@@ -237,8 +298,23 @@ export default function EscritorioPage() {
                 >
                   {saving ? 'Salvando...' : 'Salvar Dados do Escritório'}
                 </button>
+                {escritorioId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModoEdicao(false)
+                      setLogoFile(null)
+                      setLogoPreview(null)
+                      setErro(null)
+                    }}
+                    className="px-6 py-2 bg-gray-400 text-white font-medium rounded-lg hover:bg-gray-500 transition"
+                  >
+                    Cancelar
+                  </button>
+                )}
               </div>
             </form>
+            )}
           </div>
         </main>
       </div>
