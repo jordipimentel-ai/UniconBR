@@ -97,9 +97,16 @@ export default function DeclaracaoFaturamentoForm({ clientes, onGerar }: Declara
       const anoCompleto = montarAnoFaturamento(declaracoes, ano)
       setMeses(anoCompleto)
 
-      const encontrados = anoCompleto.filter((m) => m.valor > 0).length
-      if (encontrados < 12) {
-        setErro(`Foram encontrados dados de ${encontrados} de 12 meses. Preencha manualmente os meses restantes abaixo.`)
+      const faltantes = anoCompleto.filter((m) => m.valor === 0)
+      if (faltantes.length > 0) {
+        const nomesFaltantes = faltantes
+          .map((m) => nomeMesPorExtenso(parseInt(m.mes.split('/')[0], 10) - 1))
+          .join(', ')
+        setErro(
+          `Cada Declaração do PGDAS-D só traz cerca de 10 meses de histórico, então nem todo o ano coube em um único arquivo. ` +
+          `Faltam: ${nomesFaltantes}. Anexe também uma declaração de outro mês para preencher automaticamente, ` +
+          `ou complete esses meses manualmente na tabela abaixo.`
+        )
       }
     } catch (err: any) {
       console.error('Erro ao processar PGDAS:', err)
