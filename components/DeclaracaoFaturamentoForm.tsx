@@ -92,8 +92,9 @@ export default function DeclaracaoFaturamentoForm({ clientes, onGerar }: Declara
   function handleUsarDadosEscritorio() {
     if (!escritorio) return
     if (escritorio.cidade) setCidade(escritorio.cidade)
-    if (escritorio.contador_nome) setContadorNome(escritorio.contador_nome)
-    if (escritorio.contador_crc) setContadorCRC(escritorio.contador_crc)
+    const primeiroContador = escritorio.contadores?.[0]
+    if (primeiroContador?.nome) setContadorNome(primeiroContador.nome)
+    if (primeiroContador?.crc) setContadorCRC(primeiroContador.crc)
     if (escritorio.logo_url) setLogoUrl(escritorio.logo_url)
   }
 

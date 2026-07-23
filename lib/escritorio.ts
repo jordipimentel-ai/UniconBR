@@ -1,13 +1,21 @@
 import { supabase } from './supabase'
 
+export interface ContadorResponsavel {
+  nome: string
+  crc: string
+}
+
 export interface Escritorio {
   id: string
   nome: string
   cnpj: string
   endereco: string
   cidade: string
-  contador_nome: string
-  contador_crc: string
+  // Campos antigos (um único contador) mantidos só para migrar registros
+  // salvos antes da lista de vários contadores existir
+  contador_nome?: string
+  contador_crc?: string
+  contadores: ContadorResponsavel[]
   logo_url: string | null
   atualizado_em: string
 }
@@ -23,6 +31,16 @@ export async function getEscritorio() {
       .maybeSingle()
 
     if (error) throw error
+
+    if (data) {
+      // Migra o registro antigo (contador único) para o novo formato em lista,
+      // caso ainda não tenha sido preenchido
+      if ((!data.contadores || data.contadores.length === 0) && data.contador_nome) {
+        data.contadores = [{ nome: data.contador_nome, crc: data.contador_crc || '' }]
+      }
+      if (!data.contadores) data.contadores = []
+    }
+
     return { data: data as Escritorio | null, error: null }
   } catch (error: any) {
     return { data: null, error: error.message }

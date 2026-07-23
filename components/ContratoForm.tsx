@@ -52,7 +52,7 @@ export default function ContratoForm({ template, onGerar }: ContratoFormProps) {
       nome: escritorio.nome || nova[0]?.nome || '',
       cnpj: escritorio.cnpj || nova[0]?.cnpj || '',
       endereco: escritorio.endereco || nova[0]?.endereco || '',
-      representante_nome: escritorio.contador_nome || nova[0]?.representante_nome || '',
+      representante_nome: escritorio.contadores?.[0]?.nome || nova[0]?.representante_nome || '',
     }
     setPartes({ ...partes, [grupoKey]: nova })
   }

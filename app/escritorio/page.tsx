@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
-import { getEscritorio, salvarEscritorio, uploadLogoEscritorio, Escritorio } from '@/lib/escritorio'
+import { getEscritorio, salvarEscritorio, uploadLogoEscritorio, ContadorResponsavel } from '@/lib/escritorio'
 
 export default function EscritorioPage() {
   const router = useRouter()
@@ -23,9 +23,8 @@ export default function EscritorioPage() {
     cnpj: '',
     endereco: '',
     cidade: '',
-    contador_nome: '',
-    contador_crc: '',
   })
+  const [contadores, setContadores] = useState<ContadorResponsavel[]>([{ nome: '', crc: '' }])
 
   useEffect(() => {
     async function init() {
@@ -47,9 +46,8 @@ export default function EscritorioPage() {
           cnpj: data.cnpj || '',
           endereco: data.endereco || '',
           cidade: data.cidade || '',
-          contador_nome: data.contador_nome || '',
-          contador_crc: data.contador_crc || '',
         })
+        setContadores(data.contadores && data.contadores.length > 0 ? data.contadores : [{ nome: '', crc: '' }])
       } else {
         // Nenhum cadastro ainda: vai direto para o formulário de criação
         setModoEdicao(true)
@@ -86,9 +84,12 @@ export default function EscritorioPage() {
         novaLogoUrl = url
       }
 
+      const contadoresValidos = contadores.filter((c) => c.nome.trim())
+
       const { data, error } = await salvarEscritorio({
         id: escritorioId,
         ...formData,
+        contadores: contadoresValidos,
         logo_url: novaLogoUrl,
       })
 
@@ -169,13 +170,19 @@ export default function EscritorioPage() {
                     <p className="text-gray-500">Cidade</p>
                     <p className="text-gray-900 font-medium">{formData.cidade || '—'}</p>
                   </div>
-                  <div>
-                    <p className="text-gray-500">Contador Responsável</p>
-                    <p className="text-gray-900 font-medium">{formData.contador_nome || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">CRC</p>
-                    <p className="text-gray-900 font-medium">{formData.contador_crc || '—'}</p>
+                  <div className="col-span-2">
+                    <p className="text-gray-500">Contador(es) Responsável(is)</p>
+                    {contadores.filter((c) => c.nome.trim()).length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {contadores.filter((c) => c.nome.trim()).map((c, idx) => (
+                          <li key={idx} className="text-gray-900 font-medium">
+                            {c.nome}{c.crc && ` — CRC: ${c.crc}`}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-900 font-medium">—</p>
+                    )}
                   </div>
                 </div>
 
@@ -252,37 +259,72 @@ export default function EscritorioPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4 pt-4 border-t">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cidade</label>
-                  <input
-                    type="text"
-                    value={formData.cidade}
-                    onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
-                    placeholder="Ex: São José da Laje"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Contador Responsável</label>
-                  <input
-                    type="text"
-                    value={formData.contador_nome}
-                    onChange={(e) => setFormData({ ...formData, contador_nome: e.target.value })}
-                    placeholder="Nome completo"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">CRC</label>
-                  <input
-                    type="text"
-                    value={formData.contador_crc}
-                    onChange={(e) => setFormData({ ...formData, contador_crc: e.target.value })}
-                    placeholder="Ex: 009936-5/O"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cidade</label>
+                <input
+                  type="text"
+                  value={formData.cidade}
+                  onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
+                  placeholder="Ex: São José da Laje"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+              </div>
+
+              <div className="pt-4 border-t space-y-3">
+                <label className="block text-sm font-semibold text-gray-800">Contador(es) Responsável(is)</label>
+                {contadores.map((c, idx) => (
+                  <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-semibold text-gray-500">Contador {idx + 1}</span>
+                      {contadores.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setContadores(contadores.filter((_, i) => i !== idx))}
+                          className="text-xs text-red-600 hover:text-red-700"
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Nome Completo</label>
+                        <input
+                          type="text"
+                          value={c.nome}
+                          onChange={(e) => {
+                            const novo = [...contadores]
+                            novo[idx] = { ...novo[idx], nome: e.target.value }
+                            setContadores(novo)
+                          }}
+                          placeholder="Nome completo"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">CRC</label>
+                        <input
+                          type="text"
+                          value={c.crc}
+                          onChange={(e) => {
+                            const novo = [...contadores]
+                            novo[idx] = { ...novo[idx], crc: e.target.value }
+                            setContadores(novo)
+                          }}
+                          placeholder="Ex: 009936-5/O"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setContadores([...contadores, { nome: '', crc: '' }])}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  + Adicionar contador
+                </button>
               </div>
 
               <p className="text-xs text-gray-500 pt-2">
