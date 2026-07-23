@@ -31,11 +31,15 @@ export async function getEscritorio() {
 
 export async function salvarEscritorio(dados: Partial<Escritorio> & { id?: string }) {
   try {
-    if (dados.id) {
-      const { id, ...updates } = dados
+    // Remove explicitamente o "id" do payload em vez de confiar que uma
+    // chave com valor undefined some sozinha na serialização — assim o
+    // banco sempre aplica o DEFAULT gen_random_uuid() na criação
+    const { id, ...resto } = dados
+
+    if (id) {
       const { data, error } = await supabase
         .from('escritorio')
-        .update({ ...updates, atualizado_em: new Date().toISOString() })
+        .update({ ...resto, atualizado_em: new Date().toISOString() })
         .eq('id', id)
         .select()
         .single()
@@ -46,7 +50,7 @@ export async function salvarEscritorio(dados: Partial<Escritorio> & { id?: strin
 
     const { data, error } = await supabase
       .from('escritorio')
-      .insert([{ ...dados, atualizado_em: new Date().toISOString() }])
+      .insert([{ ...resto, atualizado_em: new Date().toISOString() }])
       .select()
       .single()
 
