@@ -1,4 +1,4 @@
-import { ContratoTemplate, texto, numero, formatMoeda } from './types'
+import { ContratoTemplate, texto, itensClausula, itemTexto, itemNumero, formatMoeda, ordinal } from './types'
 
 export const alteracaoEITemplate: ContratoTemplate = {
   id: 'alteracao_ei',
@@ -12,17 +12,67 @@ export const alteracaoEITemplate: ContratoTemplate = {
     { key: 'cpf', label: 'CPF', tipo: 'texto', obrigatorio: true },
     { key: 'rg', label: 'RG', tipo: 'texto' },
     { key: 'endereco_residencial', label: 'Endereço Residencial', tipo: 'textarea', obrigatorio: true },
-    { key: 'firma', label: 'Nome Empresarial (Firma)', tipo: 'texto', obrigatorio: true },
+    { key: 'firma', label: 'Nome Empresarial Atual (Firma)', tipo: 'texto', obrigatorio: true },
     { key: 'cnpj', label: 'CNPJ', tipo: 'texto', obrigatorio: true },
     { key: 'nire', label: 'NIRE', tipo: 'texto', obrigatorio: true },
     { key: 'endereco_empresa_atual', label: 'Endereço Atual da Empresa', tipo: 'textarea', obrigatorio: true },
-    { key: 'alterar_capital', label: 'Alterar Capital Social?', tipo: 'select', opcoes: ['Não', 'Sim'], padrao: 'Não' },
-    { key: 'capital_antigo', label: 'Capital Social Atual (R$)', tipo: 'moeda' },
-    { key: 'capital_novo', label: 'Novo Capital Social (R$)', tipo: 'moeda' },
-    { key: 'alterar_endereco', label: 'Alterar Endereço da Empresa?', tipo: 'select', opcoes: ['Não', 'Sim'], padrao: 'Não' },
-    { key: 'endereco_empresa_novo', label: 'Novo Endereço da Empresa', tipo: 'textarea' },
     { key: 'cidade', label: 'Cidade (assinatura)', tipo: 'texto', obrigatorio: true },
     { key: 'data_assinatura', label: 'Data de Assinatura', tipo: 'data', obrigatorio: true },
+  ],
+  // Cada alteração é adicionada uma a uma pelo usuário, podendo combinar
+  // quantas quiser dentro do mesmo instrumento (ex.: mudar endereço E capital
+  // no mesmo contrato), na ordem em que forem inseridas
+  clausulasDinamicas: [
+    {
+      key: 'alteracoes',
+      label: 'Alterações',
+      tipos: [
+        {
+          valor: 'razao_social',
+          label: 'Razão Social e Nome Fantasia',
+          campos: [
+            { key: 'razao_social_nova', label: 'Nova Razão Social', tipo: 'texto', obrigatorio: true },
+            { key: 'nome_fantasia_novo', label: 'Novo Nome Fantasia (opcional)', tipo: 'texto' },
+          ],
+        },
+        {
+          valor: 'endereco',
+          label: 'Endereço',
+          campos: [
+            { key: 'endereco_novo', label: 'Novo Endereço da Empresa', tipo: 'textarea', obrigatorio: true },
+          ],
+        },
+        {
+          valor: 'capital',
+          label: 'Capital Social',
+          campos: [
+            { key: 'capital_antigo', label: 'Capital Social Atual (R$)', tipo: 'moeda', obrigatorio: true },
+            { key: 'capital_novo', label: 'Novo Capital Social (R$)', tipo: 'moeda', obrigatorio: true },
+          ],
+        },
+        {
+          valor: 'atividades',
+          label: 'Atividades (Objeto Social)',
+          campos: [
+            { key: 'objeto_social_novo', label: 'Nova Descrição das Atividades', tipo: 'textarea', obrigatorio: true },
+            { key: 'cnaes_novos', label: 'CNAEs (opcional)', tipo: 'textarea', placeholder: 'Ex: 4729-6/99 - Comércio varejista...' },
+          ],
+        },
+        {
+          valor: 'enquadramento',
+          label: 'Enquadramento',
+          campos: [
+            {
+              key: 'novo_enquadramento',
+              label: 'Novo Enquadramento',
+              tipo: 'select',
+              obrigatorio: true,
+              opcoes: ['Microempresa (ME)', 'Empresa de Pequeno Porte (EPP)', 'Sem enquadramento especial'],
+            },
+          ],
+        },
+      ],
+    },
   ],
   gerarClausulas(dados) {
     const clausulas: string[] = []
@@ -32,26 +82,37 @@ export const alteracaoEITemplate: ContratoTemplate = {
       `${nome}, ${texto(dados, 'nacionalidade', 'brasileiro(a)')}${texto(dados, 'estado_civil') ? `, ${texto(dados, 'estado_civil')}` : ''}, portador(a) do CPF nº ${texto(dados, 'cpf')}${texto(dados, 'rg') ? ` e RG nº ${texto(dados, 'rg')}` : ''}, residente e domiciliado(a) em ${texto(dados, 'endereco_residencial')}, registrado(a) sob a firma ${texto(dados, 'firma')}, com sede em ${texto(dados, 'endereco_empresa_atual')}, inscrita no CNPJ nº ${texto(dados, 'cnpj')}, registrada na Junta Comercial do Estado de Alagoas sob o NIRE nº ${texto(dados, 'nire')}, resolve ALTERAR o EMPRESÁRIO INDIVIDUAL mediante as seguintes cláusulas:`
     )
 
-    let numeroClausula = 1
-    const ordinal = ['PRIMEIRA', 'SEGUNDA', 'TERCEIRA', 'QUARTA']
+    const itens = itensClausula(dados, 'alteracoes')
 
-    if (texto(dados, 'alterar_capital') === 'Sim') {
-      const antigo = numero(dados, 'capital_antigo')
-      const novo = numero(dados, 'capital_novo')
-      clausulas.push(
-        `CLÁUSULA ${ordinal[numeroClausula - 1]}: O Capital Social da empresa, que antes era de ${formatMoeda(antigo)}, passa a ser de ${formatMoeda(novo)}, totalmente subscrito e integralizado em moeda corrente do país.`
-      )
-      numeroClausula++
-    }
+    itens.forEach((item, idx) => {
+      const cl = `CLÁUSULA ${ordinal(idx)}`
 
-    if (texto(dados, 'alterar_endereco') === 'Sim') {
-      clausulas.push(
-        `CLÁUSULA ${ordinal[numeroClausula - 1]}: A empresa, que vinha exercendo suas atividades em ${texto(dados, 'endereco_empresa_atual')}, passa a fazê-lo em ${texto(dados, 'endereco_empresa_novo')}.`
-      )
-      numeroClausula++
-    }
+      if (item.tipo === 'razao_social') {
+        const nomeFantasia = itemTexto(item, 'nome_fantasia_novo')
+        clausulas.push(
+          `${cl}: O nome empresarial passa a ser ${itemTexto(item, 'razao_social_nova')}${nomeFantasia ? `, adotando o nome fantasia ${nomeFantasia}` : ''}.`
+        )
+      } else if (item.tipo === 'endereco') {
+        clausulas.push(
+          `${cl}: A empresa, que vinha exercendo suas atividades em ${texto(dados, 'endereco_empresa_atual')}, passa a fazê-lo em ${itemTexto(item, 'endereco_novo')}.`
+        )
+      } else if (item.tipo === 'capital') {
+        clausulas.push(
+          `${cl}: O Capital Social da empresa, que antes era de ${formatMoeda(itemNumero(item, 'capital_antigo'))}, passa a ser de ${formatMoeda(itemNumero(item, 'capital_novo'))}, totalmente subscrito e integralizado em moeda corrente do país.`
+        )
+      } else if (item.tipo === 'atividades') {
+        const cnaes = itemTexto(item, 'cnaes_novos')
+        clausulas.push(
+          `${cl}: A empresa passa a ter por objeto o exercício das seguintes atividades: ${itemTexto(item, 'objeto_social_novo')}.${cnaes ? ` Passando a exercer os seguintes CNAEs: ${cnaes}.` : ''}`
+        )
+      } else if (item.tipo === 'enquadramento') {
+        clausulas.push(
+          `${cl}: A empresa passa a se enquadrar como ${itemTexto(item, 'novo_enquadramento')}, nos termos da Lei Complementar nº 123, de 14 de dezembro de 2006.`
+        )
+      }
+    })
 
-    clausulas.push(`CLÁUSULA ${ordinal[numeroClausula - 1]}: Permanecem inalteradas as demais cláusulas contratuais não modificadas pelas condições acima mencionadas.`)
+    clausulas.push(`CLÁUSULA ${ordinal(itens.length)}: Permanecem inalteradas as demais cláusulas contratuais não modificadas pelas condições acima mencionadas.`)
     clausulas.push(`E por estar assim justo e acertado, assina o presente instrumento em uma única via.`)
 
     return clausulas

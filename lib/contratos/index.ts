@@ -4,6 +4,7 @@ import { compraVendaTemplate } from './compraVenda'
 import { prestacaoServicoTemplate } from './prestacaoServico'
 import { alteracaoEITemplate } from './alteracaoEmpresarioIndividual'
 import { transformacaoEILtdaTemplate } from './transformacaoEILtda'
+import { transformacaoEILtdaUnipessoalTemplate } from './transformacaoEILtdaUnipessoal'
 import { servicoContabilTemplate } from './servicoContabil'
 
 export * from './types'
@@ -28,7 +29,7 @@ export const CATEGORIAS: CategoriaContrato[] = [
   {
     id: 'juceal',
     nome: 'Alterações JUCEAL',
-    templates: [alteracaoEITemplate, transformacaoEILtdaTemplate],
+    templates: [alteracaoEITemplate, transformacaoEILtdaUnipessoalTemplate, transformacaoEILtdaTemplate],
   },
   {
     id: 'clientes',

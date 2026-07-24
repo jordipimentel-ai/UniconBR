@@ -1,7 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ContratoTemplate, CampoSchema, ValoresCampos, ValoresPartes, DadosContrato } from '@/lib/contratos'
+import {
+  ContratoTemplate,
+  CampoSchema,
+  ValoresCampos,
+  ValoresPartes,
+  ValoresClausulasDinamicas,
+  ItemClausulaDinamica,
+  DadosContrato,
+} from '@/lib/contratos'
 import { getEscritorio, Escritorio } from '@/lib/escritorio'
 
 interface ClienteOpcao {
@@ -32,6 +40,14 @@ function pessoaVazia(camposPessoa: CampoSchema[]): ValoresCampos {
   return p
 }
 
+function clausulasIniciais(grupos: ContratoTemplate['clausulasDinamicas']): ValoresClausulasDinamicas {
+  const iniciais: ValoresClausulasDinamicas = {}
+  ;(grupos || []).forEach((grupo) => {
+    iniciais[grupo.key] = []
+  })
+  return iniciais
+}
+
 export default function ContratoForm({ template, onGerar, clientesDisponiveis = [] }: ContratoFormProps) {
   const [campos, setCampos] = useState<ValoresCampos>(() => valoresIniciaisCampos(template.campos))
   const [partes, setPartes] = useState<ValoresPartes>(() => {
@@ -41,6 +57,7 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
     })
     return iniciais
   })
+  const [clausulas, setClausulas] = useState<ValoresClausulasDinamicas>(() => clausulasIniciais(template.clausulasDinamicas))
   const [erro, setErro] = useState<string | null>(null)
   const [escritorio, setEscritorio] = useState<Escritorio | null>(null)
 
@@ -85,6 +102,7 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
       iniciais[grupo.key] = Array.from({ length: grupo.minimo }, () => pessoaVazia(grupo.camposPessoa))
     })
     setPartes(iniciais)
+    setClausulas(clausulasIniciais(template.clausulasDinamicas))
     setErro(null)
   }, [template])
 
@@ -158,8 +176,22 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
       }
     }
 
+    for (const grupo of template.clausulasDinamicas || []) {
+      const itens = clausulas[grupo.key] || []
+      for (const item of itens) {
+        const tipoDef = grupo.tipos.find((t) => t.valor === item.tipo)
+        if (!tipoDef) continue
+        for (const campo of tipoDef.campos) {
+          if (campo.obrigatorio && !item.valores[campo.key]) {
+            setErro(`Preencha o campo "${campo.label}" em "${tipoDef.label}"`)
+            return
+          }
+        }
+      }
+    }
+
     setErro(null)
-    onGerar({ campos, partes })
+    onGerar({ campos, partes, clausulasDinamicas: clausulas })
   }
 
   return (
@@ -168,6 +200,7 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
 
       {(template.partes || []).map((grupo) => {
         const lista = partes[grupo.key] || []
+        const atingiuMaximo = grupo.maximo !== undefined && lista.length >= grupo.maximo
         return (
           <div key={grupo.key} className="pt-4 border-t space-y-3">
             <div className="flex items-center justify-between">
@@ -230,11 +263,80 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
                 </div>
               </div>
             ))}
+            {!atingiuMaximo && (
+              <button
+                onClick={() => setPartes({ ...partes, [grupo.key]: [...lista, pessoaVazia(grupo.camposPessoa)] })}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                + Adicionar {grupo.labelSingular.toLowerCase()}
+              </button>
+            )}
+          </div>
+        )
+      })}
+
+      {(template.clausulasDinamicas || []).map((grupo) => {
+        const itens = clausulas[grupo.key] || []
+        return (
+          <div key={grupo.key} className="pt-4 border-t space-y-3">
+            <label className="block text-sm font-semibold text-gray-800">{grupo.label}</label>
+
+            {itens.map((item, idx) => {
+              const tipoDef = grupo.tipos.find((t) => t.valor === item.tipo) || grupo.tipos[0]
+              return (
+                <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+                  <div className="flex justify-between items-center gap-3">
+                    <select
+                      value={item.tipo}
+                      onChange={(e) => {
+                        const novoTipo = e.target.value
+                        const novos = [...itens]
+                        novos[idx] = { tipo: novoTipo, valores: {} }
+                        setClausulas({ ...clausulas, [grupo.key]: novos })
+                      }}
+                      className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium"
+                    >
+                      {grupo.tipos.map((t) => (
+                        <option key={t.valor} value={t.valor}>{t.label}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => {
+                        const novos = [...itens]
+                        novos.splice(idx, 1)
+                        setClausulas({ ...clausulas, [grupo.key]: novos })
+                      }}
+                      className="text-xs text-red-600 hover:text-red-700 whitespace-nowrap"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(tipoDef?.campos || []).map((campo) => (
+                      <div key={campo.key} className={campo.tipo === 'textarea' ? 'col-span-2' : ''}>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {campo.label}{campo.obrigatorio && ' *'}
+                        </label>
+                        {renderCampoInput(campo, item.valores[campo.key], (v) => {
+                          const novos = [...itens]
+                          novos[idx] = { ...novos[idx], valores: { ...novos[idx].valores, [campo.key]: v } }
+                          setClausulas({ ...clausulas, [grupo.key]: novos })
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+
             <button
-              onClick={() => setPartes({ ...partes, [grupo.key]: [...lista, pessoaVazia(grupo.camposPessoa)] })}
+              onClick={() => {
+                const novoItem: ItemClausulaDinamica = { tipo: grupo.tipos[0].valor, valores: {} }
+                setClausulas({ ...clausulas, [grupo.key]: [...itens, novoItem] })
+              }}
               className="text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
-              + Adicionar {grupo.labelSingular.toLowerCase()}
+              + Adicionar alteração
             </button>
           </div>
         )

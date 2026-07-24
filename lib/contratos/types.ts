@@ -17,15 +17,41 @@ export interface GrupoRepetivel {
   label: string
   labelSingular: string
   minimo: number
+  maximo?: number
   camposPessoa: CampoSchema[]
+}
+
+// Um "tipo" de cláusula dentro de um grupo dinâmico — ex.: dentro de
+// "Alterações", os tipos são Razão Social, Endereço, Capital, etc.,
+// cada um com seus próprios campos
+export interface TipoClausula {
+  valor: string
+  label: string
+  campos: CampoSchema[]
+}
+
+// Grupo de cláusulas que o usuário vai adicionando uma a uma, escolhendo o
+// tipo de cada uma (ex.: um contrato de alteração com várias alterações
+// diferentes dentro do mesmo instrumento)
+export interface GrupoClausulasDinamicas {
+  key: string
+  label: string
+  tipos: TipoClausula[]
+}
+
+export interface ItemClausulaDinamica {
+  tipo: string
+  valores: ValoresCampos
 }
 
 export type ValoresCampos = Record<string, string | number>
 export type ValoresPartes = Record<string, ValoresCampos[]>
+export type ValoresClausulasDinamicas = Record<string, ItemClausulaDinamica[]>
 
 export interface DadosContrato {
   campos: ValoresCampos
   partes: ValoresPartes
+  clausulasDinamicas?: ValoresClausulasDinamicas
 }
 
 export interface ContratoTemplate {
@@ -35,8 +61,33 @@ export interface ContratoTemplate {
   titulo: string
   campos: CampoSchema[]
   partes?: GrupoRepetivel[]
+  clausulasDinamicas?: GrupoClausulasDinamicas[]
   gerarClausulas: (dados: DadosContrato) => string[]
   gerarAssinaturas: (dados: DadosContrato) => { nome: string; documento?: string }[]
+}
+
+const ORDINAIS = [
+  'PRIMEIRA', 'SEGUNDA', 'TERCEIRA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÉTIMA',
+  'OITAVA', 'NONA', 'DÉCIMA', 'DÉCIMA PRIMEIRA', 'DÉCIMA SEGUNDA',
+]
+
+export function ordinal(indice: number): string {
+  return ORDINAIS[indice] || `${indice + 1}ª`
+}
+
+export function itensClausula(dados: DadosContrato, key: string): ItemClausulaDinamica[] {
+  return dados.clausulasDinamicas?.[key] || []
+}
+
+// Lê um campo de dentro de um item de cláusula dinâmica específico
+export function itemTexto(item: ItemClausulaDinamica, key: string, padrao = ''): string {
+  const v = item.valores[key]
+  return v !== undefined && v !== null && v !== '' ? String(v) : padrao
+}
+
+export function itemNumero(item: ItemClausulaDinamica, key: string): number {
+  const v = item.valores[key]
+  return typeof v === 'number' ? v : parseFloat(String(v || '0').replace(',', '.')) || 0
 }
 
 export function texto(dados: DadosContrato, key: string, padrao = ''): string {
