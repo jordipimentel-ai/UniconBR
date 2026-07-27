@@ -35,7 +35,7 @@ export default function NovoTarefaModal({
   const [loadingData, setLoadingData] = useState(true)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
-    cliente_id: '',
+    cliente_nome: '',
     processo_id: '',
     prazo: '',
     descricao: '',
@@ -89,13 +89,14 @@ export default function NovoTarefaModal({
     setLoading(true)
 
     try {
-      if (!formData.cliente_id || !formData.processo_id || !formData.prazo || !formData.descricao) {
+      if (!formData.processo_id || !formData.prazo || !formData.descricao) {
         setError('Preencha todos os campos obrigatórios')
         setLoading(false)
         return
       }
 
       const tarefaData = {
+        cliente_nome: formData.cliente_nome.trim() || null,
         processo_id: formData.processo_id,
         prazo: formData.prazo,
         descricao: formData.descricao,
@@ -111,6 +112,17 @@ export default function NovoTarefaModal({
         .select()
 
       let createError = response.error
+
+      // Se a coluna cliente_nome ainda não existir no banco, tenta sem ela
+      if (createError?.message?.toLowerCase().includes('cliente_nome')) {
+        console.log('Tentando inserir sem cliente_nome (coluna ainda não existe)...')
+        const { cliente_nome, ...resto } = tarefaData
+        response = await supabase
+          .from('tarefas')
+          .insert([resto])
+          .select()
+        createError = response.error
+      }
 
       // Se falhar por schema cache, tentar sem user_id
       if (createError?.message?.includes('user_id')) {
@@ -161,23 +173,26 @@ export default function NovoTarefaModal({
           {/* Cliente */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Cliente *
+              Cliente (Opcional)
             </label>
-            <select
-              value={formData.cliente_id}
+            <input
+              type="text"
+              list="clientes-cadastrados"
+              value={formData.cliente_nome}
               onChange={(e) =>
-                setFormData({ ...formData, cliente_id: e.target.value })
+                setFormData({ ...formData, cliente_nome: e.target.value })
               }
-              required
+              placeholder="Selecione um cliente cadastrado ou digite um nome novo"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            >
-              <option value="">Selecione um cliente</option>
+            />
+            <datalist id="clientes-cadastrados">
               {clientes.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.nome_razao_social}
-                </option>
+                <option key={cliente.id} value={cliente.nome_razao_social} />
               ))}
-            </select>
+            </datalist>
+            <p className="text-xs text-gray-500 mt-1">
+              Deixe em branco para uma tarefa sem cliente vinculado, ou digite um nome que ainda não está cadastrado.
+            </p>
           </div>
 
           {/* Tipo de Processo */}

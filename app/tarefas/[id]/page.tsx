@@ -8,6 +8,7 @@ import Sidebar from '@/components/Sidebar'
 interface Tarefa {
   id: string
   processo_id: string
+  cliente_nome?: string | null
   descricao: string
   prazo: string
   prioridade: 'baixa' | 'media' | 'alta'
@@ -26,6 +27,11 @@ interface Usuario {
   nome_completo: string
 }
 
+interface Cliente {
+  id: string
+  nome_razao_social: string
+}
+
 export default function EditarTarefaPage() {
   const router = useRouter()
   const params = useParams()
@@ -34,12 +40,14 @@ export default function EditarTarefaPage() {
   const [tarefa, setTarefa] = useState<Tarefa | null>(null)
   const [tiposProcesso, setTiposProcesso] = useState<TipoProcesso[]>([])
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
+    cliente_nome: '',
     processo_id: '',
     descricao: '',
     prazo: '',
@@ -71,6 +79,7 @@ export default function EditarTarefaPage() {
 
         setTarefa(tarefaData)
         setFormData({
+          cliente_nome: tarefaData.cliente_nome || '',
           processo_id: tarefaData.processo_id,
           descricao: tarefaData.descricao,
           prazo: tarefaData.prazo,
@@ -79,18 +88,24 @@ export default function EditarTarefaPage() {
           user_id: tarefaData.user_id || '',
         })
 
-        // Carregar tipos de processo e usuários
-        const [tiposRes, usuariosRes] = await Promise.all([
+        // Carregar tipos de processo, usuários e clientes
+        const [tiposRes, usuariosRes, clientesRes] = await Promise.all([
           supabase.from('tipos_processo').select('id, nome').order('nome'),
           supabase
             .from('users')
             .select('id, nome_completo')
             .eq('ativo', true)
             .order('nome_completo'),
+          supabase
+            .from('clientes')
+            .select('id, nome_razao_social')
+            .eq('ativo', true)
+            .order('nome_razao_social'),
         ])
 
         if (tiposRes.data) setTiposProcesso(tiposRes.data)
         if (usuariosRes.data) setUsuarios(usuariosRes.data)
+        if (clientesRes.data) setClientes(clientesRes.data)
       } catch (err) {
         console.error('Erro ao carregar dados:', err)
         setError('Erro ao carregar tarefa')
@@ -112,6 +127,7 @@ export default function EditarTarefaPage() {
       const { error: updateError } = await supabase
         .from('tarefas')
         .update({
+          cliente_nome: formData.cliente_nome.trim() || null,
           processo_id: formData.processo_id,
           descricao: formData.descricao,
           prazo: formData.prazo,
@@ -186,6 +202,28 @@ export default function EditarTarefaPage() {
                 {success}
               </div>
             )}
+
+            {/* Cliente */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cliente (Opcional)
+              </label>
+              <input
+                type="text"
+                list="clientes-cadastrados-edit"
+                value={formData.cliente_nome}
+                onChange={(e) =>
+                  setFormData({ ...formData, cliente_nome: e.target.value })
+                }
+                placeholder="Selecione um cliente cadastrado ou digite um nome novo"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
+              <datalist id="clientes-cadastrados-edit">
+                {clientes.map((cliente) => (
+                  <option key={cliente.id} value={cliente.nome_razao_social} />
+                ))}
+              </datalist>
+            </div>
 
             {/* Processo */}
             <div>

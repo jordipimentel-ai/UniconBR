@@ -10,6 +10,7 @@ import { formatDataLocal } from '@/lib/date-utils'
 interface Tarefa {
   id: string
   processo_id: string
+  cliente_nome?: string | null
   descricao: string
   prazo: string
   prioridade: 'baixa' | 'media' | 'alta'
@@ -87,7 +88,8 @@ export default function TarefasPage() {
   const tarefasFiltradas = tarefas.filter((tarefa) =>
     tarefa.descricao.toLowerCase().includes(search.toLowerCase()) ||
     tarefa.tipos_processo?.nome.toLowerCase().includes(search.toLowerCase()) ||
-    tarefa.users?.nome_completo.toLowerCase().includes(search.toLowerCase())
+    tarefa.users?.nome_completo.toLowerCase().includes(search.toLowerCase()) ||
+    tarefa.cliente_nome?.toLowerCase().includes(search.toLowerCase())
   )
 
   const formatDate = (date: string) => {
@@ -114,7 +116,7 @@ export default function TarefasPage() {
             <div className="flex-1 max-w-md">
               <input
                 type="text"
-                placeholder="Buscar por descrição, processo ou responsável..."
+                placeholder="Buscar por descrição, cliente, processo ou responsável..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
@@ -140,6 +142,9 @@ export default function TarefasPage() {
                       Descrição
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Cliente
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       Processo
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
@@ -162,7 +167,7 @@ export default function TarefasPage() {
                 <tbody>
                   {tarefasFiltradas.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                         {search ? 'Nenhuma tarefa encontrada com essa busca' : 'Nenhuma tarefa criada'}
                       </td>
                     </tr>
@@ -177,6 +182,9 @@ export default function TarefasPage() {
                             <div>
                               <p className="font-medium text-gray-900">{tarefa.descricao}</p>
                             </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {tarefa.cliente_nome || '—'}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-600">
                             {tarefa.tipos_processo?.nome || '—'}
