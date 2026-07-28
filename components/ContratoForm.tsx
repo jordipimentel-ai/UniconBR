@@ -9,7 +9,12 @@ import {
   ValoresClausulasDinamicas,
   ItemClausulaDinamica,
   DadosContrato,
+  formatMoeda,
 } from '@/lib/contratos'
+
+function rotulo(campo: CampoSchema): string {
+  return campo.icone ? `${campo.icone} ${campo.label}` : campo.label
+}
 import { getEscritorio, Escritorio } from '@/lib/escritorio'
 
 interface ClienteOpcao {
@@ -133,11 +138,28 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
     if (campo.tipo === 'data') {
       return <input type="date" value={valor ?? ''} onChange={(e) => onChange(e.target.value)} className={className} />
     }
-    if (campo.tipo === 'numero' || campo.tipo === 'moeda') {
+    if (campo.tipo === 'moeda') {
+      const numerico = typeof valor === 'number' ? valor : parseFloat(String(valor || '0').replace(',', '.')) || 0
+      const exibicao = valor === '' || valor === undefined || valor === null ? '' : formatMoeda(numerico)
+      return (
+        <input
+          type="text"
+          inputMode="numeric"
+          value={exibicao}
+          onChange={(e) => {
+            const digitos = e.target.value.replace(/\D/g, '')
+            onChange(digitos ? parseInt(digitos, 10) / 100 : '')
+          }}
+          placeholder="R$ 0,00"
+          className={className}
+        />
+      )
+    }
+    if (campo.tipo === 'numero') {
       return (
         <input
           type="number"
-          step={campo.tipo === 'moeda' ? '0.01' : '1'}
+          step="1"
           value={valor ?? ''}
           onChange={(e) => onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
           placeholder={campo.placeholder}
@@ -251,7 +273,7 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
                   {grupo.camposPessoa.map((campo) => (
                     <div key={campo.key} className={campo.tipo === 'textarea' ? 'col-span-2' : ''}>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
-                        {campo.label}{campo.obrigatorio && ' *'}
+                        {rotulo(campo)}{campo.obrigatorio && ' *'}
                       </label>
                       {renderCampoInput(campo, pessoa[campo.key], (v) => {
                         const nova = [...lista]
@@ -315,7 +337,7 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
                     {(tipoDef?.campos || []).map((campo) => (
                       <div key={campo.key} className={campo.tipo === 'textarea' ? 'col-span-2' : ''}>
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          {campo.label}{campo.obrigatorio && ' *'}
+                          {rotulo(campo)}{campo.obrigatorio && ' *'}
                         </label>
                         {renderCampoInput(campo, item.valores[campo.key], (v) => {
                           const novos = [...itens]
@@ -346,7 +368,7 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
         {template.campos.map((campo) => (
           <div key={campo.key} className={campo.tipo === 'textarea' ? 'col-span-2' : ''}>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {campo.label}{campo.obrigatorio && ' *'}
+              {rotulo(campo)}{campo.obrigatorio && ' *'}
             </label>
             {renderCampoInput(campo, campos[campo.key], (v) => setCampos({ ...campos, [campo.key]: v }))}
           </div>

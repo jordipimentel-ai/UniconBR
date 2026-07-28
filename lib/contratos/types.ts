@@ -6,10 +6,17 @@ export interface CampoSchema {
   key: string
   label: string
   tipo: CampoTipo
+  icone?: string
   opcoes?: string[]
   obrigatorio?: boolean
   placeholder?: string
   padrao?: string | number
+}
+
+// Concorda um termo no singular/plural conforme a quantidade de pessoas
+// naquele papel (ex.: "O VENDEDOR" x "OS VENDEDORES")
+export function concordar(qtd: number, singular: string, plural: string): string {
+  return qtd > 1 ? plural : singular
 }
 
 export interface GrupoRepetivel {
