@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd'
 import { supabase } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
 import NovoTarefaModal from '@/components/NovoTarefaModal'
-import { formatDataLocal } from '@/lib/date-utils'
+import TaskCard from '@/components/TaskCard'
 
 interface Tarefa {
   id: string
@@ -21,17 +22,17 @@ interface Tarefa {
   users?: { nome_completo: string }
 }
 
-const PRIORIDADE_CONFIGS = {
-  baixa: { label: 'Baixa', color: 'bg-green-100 text-green-800', emoji: '🟢' },
-  media: { label: 'Média', color: 'bg-yellow-100 text-yellow-800', emoji: '🟡' },
-  alta: { label: 'Alta', color: 'bg-red-100 text-red-800', emoji: '🔴' },
-}
+const COLUNAS: { status: Tarefa['status']; titulo: string; icone: string; corBg: string; corBorda: string; corTexto: string }[] = [
+  { status: 'pendente', titulo: 'A Fazer', icone: '📋', corBg: '#fef2f2', corBorda: '#ef4444', corTexto: '#7f1d1d' },
+  { status: 'em_andamento', titulo: 'Fazendo', icone: '🔄', corBg: '#eff6ff', corBorda: '#3b82f6', corTexto: '#1e40af' },
+  { status: 'concluida', titulo: 'Concluído', icone: '✓', corBg: '#f0fdf4', corBorda: '#10b981', corTexto: '#166534' },
+]
 
-const STATUS_CONFIGS = {
-  pendente: { label: 'A fazer', color: 'bg-gray-100 text-gray-800', emoji: '⚪' },
-  em_andamento: { label: 'Fazendo', color: 'bg-blue-100 text-blue-800', emoji: '🔵' },
-  concluida: { label: 'Concluído', color: 'bg-green-100 text-green-800', emoji: '✅' },
-}
+const SELECT_QUERY = `
+  *,
+  tipos_processo:tipos_processo(nome),
+  users:users(nome_completo)
+`
 
 export default function TarefasPage() {
   const router = useRouter()
@@ -40,27 +41,26 @@ export default function TarefasPage() {
   const [showModal, setShowModal] = useState(false)
   const [search, setSearch] = useState('')
 
+  async function loadTarefas() {
+    const { data, error } = await supabase
+      .from('tarefas')
+      .select(SELECT_QUERY)
+      .order('prazo', { ascending: true })
+
+    if (!error && data) {
+      setTarefas(data as unknown as Tarefa[])
+    }
+  }
+
   useEffect(() => {
-    async function loadTarefas() {
+    async function init() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
           router.push('/auth')
           return
         }
-
-        const { data, error } = await supabase
-          .from('tarefas')
-          .select(`
-            *,
-            tipos_processo:tipos_processo(nome),
-            users:users(nome_completo)
-          `)
-          .order('prazo', { ascending: true })
-
-        if (!error && data) {
-          setTarefas(data as Tarefa[])
-        }
+        await loadTarefas()
       } catch (err) {
         console.error('Erro ao carregar tarefas:', err)
       } finally {
@@ -68,33 +68,54 @@ export default function TarefasPage() {
       }
     }
 
-    loadTarefas()
+    init()
   }, [router])
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja deletar esta tarefa?')) return
 
-    const { error } = await supabase
-      .from('tarefas')
-      .delete()
-      .eq('id', id)
+    const { error } = await supabase.from('tarefas').delete().eq('id', id)
 
     if (!error) {
-      setTarefas(tarefas.filter((t) => t.id !== id))
+      setTarefas((prev) => prev.filter((t) => t.id !== id))
+    } else {
+      alert('Erro ao deletar tarefa')
     }
   }
 
-  // Filtrar tarefas por busca
-  const tarefasFiltradas = tarefas.filter((tarefa) =>
-    tarefa.descricao.toLowerCase().includes(search.toLowerCase()) ||
-    tarefa.tipos_processo?.nome.toLowerCase().includes(search.toLowerCase()) ||
-    tarefa.users?.nome_completo.toLowerCase().includes(search.toLowerCase()) ||
-    tarefa.cliente_nome?.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const formatDate = (date: string) => {
-    return formatDataLocal(date)
+  const handleEdit = (id: string) => {
+    router.push(`/tarefas/${id}`)
   }
+
+  const handleDragEnd = async (result: DropResult) => {
+    const { destination, source, draggableId } = result
+    if (!destination) return
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return
+
+    const novoStatus = destination.droppableId as Tarefa['status']
+    const tarefaAnterior = tarefas.find((t) => t.id === draggableId)
+    if (!tarefaAnterior) return
+
+    setTarefas((prev) => prev.map((t) => (t.id === draggableId ? { ...t, status: novoStatus } : t)))
+
+    const { error } = await supabase.from('tarefas').update({ status: novoStatus }).eq('id', draggableId)
+
+    if (error) {
+      console.error('Erro ao mover tarefa:', error)
+      setTarefas((prev) => prev.map((t) => (t.id === draggableId ? tarefaAnterior : t)))
+      alert('Erro ao mover tarefa')
+    }
+  }
+
+  const tarefasFiltradas = tarefas.filter((tarefa) => {
+    const termo = search.toLowerCase()
+    return (
+      tarefa.descricao.toLowerCase().includes(termo) ||
+      tarefa.tipos_processo?.nome.toLowerCase().includes(termo) ||
+      tarefa.users?.nome_completo.toLowerCase().includes(termo) ||
+      tarefa.cliente_nome?.toLowerCase().includes(termo)
+    )
+  })
 
   if (loading) {
     return (
@@ -109,164 +130,141 @@ export default function TarefasPage() {
       <Sidebar />
 
       <div className="ml-64">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
-          <div className="px-8 py-6 flex justify-between items-center gap-4">
-            <h1 className="text-3xl font-bold text-gray-900">Tarefas</h1>
-            <div className="flex-1 max-w-md">
-              <input
-                type="text"
-                placeholder="Buscar por descrição, cliente, processo ou responsável..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-              />
-            </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-semibold whitespace-nowrap"
-            >
-              + Nova Tarefa
-            </button>
+        <header
+          style={{
+            background: '#1e293b',
+            color: 'white',
+            padding: '24px 32px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>Tarefas em Progresso</h1>
+            <p style={{ fontSize: 14, color: '#cbd5e1', margin: '4px 0 0 0' }}>Organize seu fluxo de trabalho</p>
           </div>
+          <button
+            onClick={() => setShowModal(true)}
+            style={{
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              color: 'white',
+              padding: '12px 24px',
+              borderRadius: 8,
+              border: 'none',
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.4)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            + Nova Tarefa
+          </button>
         </header>
 
-        {/* Main - Lista */}
-        <main className="px-8 py-8">
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Descrição
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Cliente
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Processo
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Responsável
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Prazo
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Prioridade
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tarefasFiltradas.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                        {search ? 'Nenhuma tarefa encontrada com essa busca' : 'Nenhuma tarefa criada'}
-                      </td>
-                    </tr>
-                  ) : (
-                    tarefasFiltradas.map((tarefa) => {
-                      const prioridadeConfig = PRIORIDADE_CONFIGS[tarefa.prioridade]
-                      const statusConfig = STATUS_CONFIGS[tarefa.status]
+        <div
+          style={{
+            background: 'white',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '16px 32px',
+          }}
+        >
+          <input
+            type="text"
+            placeholder="🔍 Buscar por descrição, cliente, processo ou responsável..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: '100%',
+              maxWidth: 480,
+              padding: '10px 14px',
+              border: '1px solid #cbd5e1',
+              borderRadius: 8,
+              fontSize: 13,
+              outline: 'none',
+            }}
+          />
+        </div>
 
-                      return (
-                        <tr key={tarefa.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-medium text-gray-900">{tarefa.descricao}</p>
+        <main style={{ background: '#f0f4f8', padding: 32 }}>
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(280px, 1fr))',
+                gap: 24,
+              }}
+            >
+              {COLUNAS.map((coluna) => {
+                const tarefasColuna = tarefasFiltradas.filter((t) => t.status === coluna.status)
+                return (
+                  <div key={coluna.status}>
+                    <div
+                      style={{
+                        background: coluna.corBg,
+                        borderBottom: `3px solid ${coluna.corBorda}`,
+                        color: coluna.corTexto,
+                        fontSize: 13,
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.8px',
+                        padding: '12px 16px',
+                        borderRadius: '8px 8px 0 0',
+                      }}
+                    >
+                      {coluna.icone} {coluna.titulo} ({tarefasColuna.length})
+                    </div>
+                    <Droppable droppableId={coluna.status}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          style={{
+                            minHeight: 120,
+                            padding: '16px 0 4px 0',
+                            background: snapshot.isDraggingOver ? 'rgba(59,130,246,0.05)' : 'transparent',
+                            transition: 'background 0.2s',
+                          }}
+                        >
+                          {tarefasColuna.length === 0 && !snapshot.isDraggingOver && (
+                            <div style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', padding: '24px 0' }}>
+                              Nenhuma tarefa
                             </div>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            {tarefa.cliente_nome || '—'}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            {tarefa.tipos_processo?.nome || '—'}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-2">
-                              {tarefa.users?.nome_completo ? (
-                                <>
-                                  <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold">
-                                    {tarefa.users.nome_completo.charAt(0).toUpperCase()}
-                                  </div>
-                                  <span>{tarefa.users.nome_completo}</span>
-                                </>
-                              ) : (
-                                '—'
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            {formatDate(tarefa.prazo)}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-block px-3 py-1 text-xs font-semibold rounded ${statusConfig.color}`}>
-                              {statusConfig.emoji} {statusConfig.label}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-block px-3 py-1 text-xs font-semibold rounded ${prioridadeConfig.color}`}>
-                              {prioridadeConfig.emoji} {prioridadeConfig.label}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex gap-3">
-                              <button
-                                onClick={() => router.push(`/tarefas/${tarefa.id}`)}
-                                className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                onClick={() => handleDelete(tarefa.id)}
-                                className="text-sm font-medium text-red-600 hover:text-red-700"
-                              >
-                                Deletar
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
+                          )}
+                          {tarefasColuna.map((tarefa, index) => (
+                            <TaskCard
+                              key={tarefa.id}
+                              tarefa={tarefa}
+                              index={index}
+                              onEdit={handleEdit}
+                              onDelete={handleDelete}
+                            />
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+                )
+              })}
             </div>
-          </div>
+          </DragDropContext>
 
-          {/* Resumo */}
-          <div className="mt-4 text-sm text-gray-600">
+          <div style={{ marginTop: 16, fontSize: 13, color: '#64748b' }}>
             Exibindo {tarefasFiltradas.length} de {tarefas.length} tarefa{tarefas.length !== 1 ? 's' : ''}
           </div>
         </main>
       </div>
 
-      {/* Modal Nova Tarefa */}
       {showModal && (
         <NovoTarefaModal
           onClose={() => setShowModal(false)}
           onTarefaCreated={() => {
             setShowModal(false)
             setSearch('')
-            // Reload tarefas
-            supabase
-              .from('tarefas')
-              .select(`
-                *,
-                tipos_processo:tipos_processo(nome),
-                users:users(nome_completo)
-              `)
-              .order('prazo', { ascending: true })
-              .then(({ data }) => {
-                if (data) setTarefas(data as Tarefa[])
-              })
+            loadTarefas()
           }}
         />
       )}
