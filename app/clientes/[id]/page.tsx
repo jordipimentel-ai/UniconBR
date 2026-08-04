@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { getClienteById, updateCliente, deleteCliente } from '@/lib/client-management'
 import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
+import RegistrosFinanceirosCliente from '@/components/RegistrosFinanceirosCliente'
 
 interface Cliente {
   id: string
@@ -348,6 +349,8 @@ export default function EditarClientePage() {
                 </Link>
               </div>
             </form>
+
+            <RegistrosFinanceirosCliente clienteId={clienteId} />
 
             {/* Confirmação de Delete */}
             {showDeleteConfirm && (
