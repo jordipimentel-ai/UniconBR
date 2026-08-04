@@ -13,6 +13,12 @@ interface Cliente {
   representante: string
   observacoes: string
   ativo: boolean
+  nome_fantasia?: string
+  endereco?: string
+  cnaes?: string
+  porte?: string
+  natureza_juridica?: string
+  data_abertura?: string
 }
 
 // Buscar cliente por ID

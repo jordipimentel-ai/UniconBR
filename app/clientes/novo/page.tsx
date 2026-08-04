@@ -4,11 +4,14 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { buscarDadosCNPJ } from '@/lib/cnpj-lookup'
 
 export default function NovoClientePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [buscandoCNPJ, setBuscandoCNPJ] = useState(false)
+  const [erroCNPJ, setErroCNPJ] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     nome_razao_social: '',
     cpf_cnpj: '',
@@ -20,7 +23,39 @@ export default function NovoClientePage() {
     em_funcionamento: true,
     representante: '',
     observacoes: '',
+    nome_fantasia: '',
+    endereco: '',
+    cnaes: '',
+    porte: '',
+    natureza_juridica: '',
+    data_abertura: '',
   })
+
+  async function handleBuscarCNPJ() {
+    setErroCNPJ(null)
+    setBuscandoCNPJ(true)
+
+    const { data, error: erroBusca } = await buscarDadosCNPJ(formData.cpf_cnpj)
+
+    if (!data) {
+      setErroCNPJ(erroBusca || 'Não foi possível buscar os dados do CNPJ')
+      setBuscandoCNPJ(false)
+      return
+    }
+
+    setFormData({
+      ...formData,
+      tipo: 'PJ',
+      nome_razao_social: data.nomeRazaoSocial || formData.nome_razao_social,
+      nome_fantasia: data.nomeFantasia,
+      endereco: data.endereco,
+      cnaes: data.cnaes,
+      porte: data.porte,
+      natureza_juridica: data.naturezaJuridica,
+      data_abertura: data.dataAbertura,
+    })
+    setBuscandoCNPJ(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -92,14 +127,30 @@ export default function NovoClientePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     CPF / CNPJ
                   </label>
-                  <input
-                    type="text"
-                    name="cpf_cnpj"
-                    value={formData.cpf_cnpj}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      name="cpf_cnpj"
+                      value={formData.cpf_cnpj}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleBuscarCNPJ}
+                      disabled={buscandoCNPJ}
+                      className="px-4 py-2 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 disabled:bg-gray-100 disabled:text-gray-400 transition text-sm whitespace-nowrap"
+                    >
+                      {buscandoCNPJ ? 'Buscando...' : '🔍 Buscar CNPJ'}
+                    </button>
+                  </div>
+                  {erroCNPJ && <p className="text-xs text-red-600 mt-1">{erroCNPJ}</p>}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Para pessoa jurídica: preenche razão social, nome fantasia, endereço, CNAEs, porte, natureza
+                    jurídica e data de abertura automaticamente a partir da base pública da Receita Federal — tudo
+                    fica editável depois.
+                  </p>
                 </div>
 
                 <div>
@@ -188,6 +239,92 @@ export default function NovoClientePage() {
                     name="representante"
                     value={formData.representante}
                     onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dados da Receita Federal (CNPJ) */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados da Receita Federal (CNPJ)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome Fantasia
+                  </label>
+                  <input
+                    type="text"
+                    name="nome_fantasia"
+                    value={formData.nome_fantasia}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Data de Abertura
+                  </label>
+                  <input
+                    type="date"
+                    name="data_abertura"
+                    value={formData.data_abertura}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Porte
+                  </label>
+                  <input
+                    type="text"
+                    name="porte"
+                    value={formData.porte}
+                    onChange={handleChange}
+                    placeholder="Ex: Microempresa"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Natureza Jurídica
+                  </label>
+                  <input
+                    type="text"
+                    name="natureza_juridica"
+                    value={formData.natureza_juridica}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Endereço
+                  </label>
+                  <textarea
+                    name="endereco"
+                    value={formData.endereco}
+                    onChange={handleChange}
+                    rows={2}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    CNAEs
+                  </label>
+                  <textarea
+                    name="cnaes"
+                    value={formData.cnaes}
+                    onChange={handleChange}
+                    rows={2}
+                    placeholder="Atividade principal e secundárias"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
                 </div>

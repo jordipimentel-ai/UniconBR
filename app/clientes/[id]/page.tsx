@@ -8,6 +8,8 @@ import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
 import RegistrosFinanceirosCliente from '@/components/RegistrosFinanceirosCliente'
 import UploadPGDASCliente from '@/components/UploadPGDASCliente'
+import { buscarDadosCNPJ } from '@/lib/cnpj-lookup'
+import { formatDataLocal } from '@/lib/date-utils'
 
 interface Cliente {
   id: string
@@ -22,6 +24,12 @@ interface Cliente {
   representante: string
   observacoes: string
   ativo: boolean
+  nome_fantasia?: string
+  endereco?: string
+  cnaes?: string
+  porte?: string
+  natureza_juridica?: string
+  data_abertura?: string
 }
 
 const REGIME_LABELS: Record<string, string> = {
@@ -44,6 +52,32 @@ export default function ClienteDetalhePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [modoEdicao, setModoEdicao] = useState(false)
   const [historicoKey, setHistoricoKey] = useState(0)
+  const [buscandoCNPJ, setBuscandoCNPJ] = useState(false)
+  const [erroCNPJ, setErroCNPJ] = useState<string | null>(null)
+
+  async function handleBuscarCNPJ() {
+    setErroCNPJ(null)
+    setBuscandoCNPJ(true)
+
+    const { data, error: erroBusca } = await buscarDadosCNPJ(formData.cpf_cnpj || '')
+
+    if (!data) {
+      setErroCNPJ(erroBusca || 'Não foi possível buscar os dados do CNPJ')
+      setBuscandoCNPJ(false)
+      return
+    }
+
+    setFormData({
+      ...formData,
+      nome_fantasia: data.nomeFantasia,
+      endereco: data.endereco,
+      cnaes: data.cnaes,
+      porte: data.porte,
+      natureza_juridica: data.naturezaJuridica,
+      data_abertura: data.dataAbertura,
+    })
+    setBuscandoCNPJ(false)
+  }
 
   useEffect(() => {
     async function loadCliente() {
@@ -214,6 +248,30 @@ export default function ClienteDetalhePage() {
                     <p className="text-gray-500">Representante</p>
                     <p className="text-gray-900 font-medium">{cliente.representante || '—'}</p>
                   </div>
+                  <div>
+                    <p className="text-gray-500">Nome Fantasia</p>
+                    <p className="text-gray-900 font-medium">{cliente.nome_fantasia || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Porte</p>
+                    <p className="text-gray-900 font-medium">{cliente.porte || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Natureza Jurídica</p>
+                    <p className="text-gray-900 font-medium">{cliente.natureza_juridica || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Data de Abertura</p>
+                    <p className="text-gray-900 font-medium">{cliente.data_abertura ? formatDataLocal(cliente.data_abertura) : '—'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-gray-500">Endereço</p>
+                    <p className="text-gray-900 font-medium whitespace-pre-wrap">{cliente.endereco || '—'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-gray-500">CNAEs</p>
+                    <p className="text-gray-900 font-medium whitespace-pre-wrap">{cliente.cnaes || '—'}</p>
+                  </div>
                   <div className="col-span-2">
                     <p className="text-gray-500">Observações</p>
                     <p className="text-gray-900 font-medium whitespace-pre-wrap">{cliente.observacoes || '—'}</p>
@@ -264,15 +322,28 @@ export default function ClienteDetalhePage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         CPF / CNPJ
                       </label>
-                      <input
-                        type="text"
-                        name="cpf_cnpj"
-                        value={formData.cpf_cnpj || ''}
-                        onChange={handleChange}
-                        required
-                        disabled
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed outline-none"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          name="cpf_cnpj"
+                          value={formData.cpf_cnpj || ''}
+                          onChange={handleChange}
+                          required
+                          disabled
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed outline-none"
+                        />
+                        {formData.tipo === 'PJ' && (
+                          <button
+                            type="button"
+                            onClick={handleBuscarCNPJ}
+                            disabled={buscandoCNPJ}
+                            className="px-4 py-2 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 disabled:bg-gray-100 disabled:text-gray-400 transition text-sm whitespace-nowrap"
+                          >
+                            {buscandoCNPJ ? 'Buscando...' : '🔍 Atualizar da Receita'}
+                          </button>
+                        )}
+                      </div>
+                      {erroCNPJ && <p className="text-xs text-red-600 mt-1">{erroCNPJ}</p>}
                       <p className="text-xs text-gray-500 mt-1">Não pode ser alterado</p>
                     </div>
 
@@ -362,6 +433,73 @@ export default function ClienteDetalhePage() {
                         name="representante"
                         value={formData.representante || ''}
                         onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dados da Receita Federal (CNPJ) */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados da Receita Federal (CNPJ)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Nome Fantasia</label>
+                      <input
+                        type="text"
+                        name="nome_fantasia"
+                        value={formData.nome_fantasia || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Data de Abertura</label>
+                      <input
+                        type="date"
+                        name="data_abertura"
+                        value={formData.data_abertura || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Porte</label>
+                      <input
+                        type="text"
+                        name="porte"
+                        value={formData.porte || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Natureza Jurídica</label>
+                      <input
+                        type="text"
+                        name="natureza_juridica"
+                        value={formData.natureza_juridica || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Endereço</label>
+                      <textarea
+                        name="endereco"
+                        value={formData.endereco || ''}
+                        onChange={handleChange}
+                        rows={2}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">CNAEs</label>
+                      <textarea
+                        name="cnaes"
+                        value={formData.cnaes || ''}
+                        onChange={handleChange}
+                        rows={2}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                       />
                     </div>
