@@ -130,7 +130,11 @@ export default function ClientesPage() {
                 </tr>
               ) : (
                 filteredClientes.map((cliente) => (
-                  <tr key={cliente.id} className="border-b border-gray-200 hover:bg-gray-50">
+                  <tr
+                    key={cliente.id}
+                    onClick={() => router.push(`/clientes/${cliente.id}`)}
+                    className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+                  >
                     <td className="px-6 py-4">
                       <p className="font-medium text-gray-900">{cliente.nome_razao_social}</p>
                     </td>
@@ -153,12 +157,16 @@ export default function ClientesPage() {
                     <td className="px-6 py-4 text-sm">
                       <Link
                         href={`/clientes/${cliente.id}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="text-blue-600 hover:text-blue-700 font-medium mr-4"
                       >
-                        Editar
+                        Abrir
                       </Link>
                       <button
-                        onClick={() => handleDelete(cliente.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(cliente.id)
+                        }}
                         className="text-red-600 hover:text-red-700 font-medium"
                       >
                         Deletar
