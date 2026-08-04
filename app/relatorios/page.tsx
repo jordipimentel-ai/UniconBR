@@ -10,6 +10,7 @@ import DeclaracaoFaturamentoForm, { DeclaracaoFaturamentoData } from '@/componen
 import DeclaracaoFaturamentoPreview from '@/components/DeclaracaoFaturamentoPreview'
 import { extractPDFData, consolidarDados, FaturamentoMes } from '@/lib/pdf-processor'
 import { exportarElementoParaPDF } from '@/lib/pdf-export'
+import { mesAnoParaData, upsertRegistroFinanceiroMes } from '@/lib/registros-financeiros'
 
 interface Cliente {
   id: string
@@ -117,7 +118,7 @@ export default function RelatoriosPage() {
     }
   }
 
-  function handleConfirmarRevisao() {
+  async function handleConfirmarRevisao() {
     if (!revisao) return
 
     const clienteNome = clientes.find(c => c.id === clienteSelecionado)?.nome_razao_social || ''
@@ -145,6 +146,20 @@ export default function RelatoriosPage() {
       detalhes: revisao.detalhes,
     })
     setRevisao(null)
+
+    // Todo relatório mensal confirmado entra automaticamente no histórico
+    // financeiro do cliente (aba "Histórico Financeiro Mensal" na ficha dele)
+    if (periodo === 'mes') {
+      const dataRef = mesAnoParaData(periodoStr)
+      const folhaValor = revisao.salarios + revisao.encargos
+      if (dataRef) {
+        await upsertRegistroFinanceiroMes(clienteSelecionado, dataRef, {
+          faturamento: revisao.faturamento,
+          folha_paga: folhaValor > 0,
+          folha_valor: folhaValor > 0 ? folhaValor : null,
+        })
+      }
+    }
   }
 
   async function handleBaixarPDF() {

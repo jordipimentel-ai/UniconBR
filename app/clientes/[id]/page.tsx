@@ -7,6 +7,7 @@ import { getClienteById, updateCliente, deleteCliente } from '@/lib/client-manag
 import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
 import RegistrosFinanceirosCliente from '@/components/RegistrosFinanceirosCliente'
+import UploadPGDASCliente from '@/components/UploadPGDASCliente'
 
 interface Cliente {
   id: string
@@ -42,6 +43,7 @@ export default function ClienteDetalhePage() {
   const [formData, setFormData] = useState<Partial<Cliente>>({})
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [modoEdicao, setModoEdicao] = useState(false)
+  const [historicoKey, setHistoricoKey] = useState(0)
 
   useEffect(() => {
     async function loadCliente() {
@@ -420,7 +422,9 @@ export default function ClienteDetalhePage() {
               </form>
             )}
 
-            <RegistrosFinanceirosCliente clienteId={clienteId} />
+            <UploadPGDASCliente clienteId={clienteId} onSalvo={() => setHistoricoKey((k) => k + 1)} />
+
+            <RegistrosFinanceirosCliente key={historicoKey} clienteId={clienteId} />
           </div>
         </main>
       </div>
