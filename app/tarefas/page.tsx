@@ -52,6 +52,22 @@ export default function TarefasPage() {
     }
   }
 
+  // Tarefas concluídas há mais de 2 dias são apagadas automaticamente
+  async function limparConcluidasAntigas() {
+    const limite = new Date()
+    limite.setDate(limite.getDate() - 2)
+
+    const { error } = await supabase
+      .from('tarefas')
+      .delete()
+      .eq('status', 'concluida')
+      .lt('atualizado_em', limite.toISOString())
+
+    if (error) {
+      console.error('Erro ao limpar tarefas concluídas antigas:', error)
+    }
+  }
+
   useEffect(() => {
     async function init() {
       try {
@@ -60,6 +76,7 @@ export default function TarefasPage() {
           router.push('/auth')
           return
         }
+        await limparConcluidasAntigas()
         await loadTarefas()
       } catch (err) {
         console.error('Erro ao carregar tarefas:', err)
@@ -98,7 +115,15 @@ export default function TarefasPage() {
 
     setTarefas((prev) => prev.map((t) => (t.id === draggableId ? { ...t, status: novoStatus } : t)))
 
-    const { error } = await supabase.from('tarefas').update({ status: novoStatus }).eq('id', draggableId)
+    let { error } = await supabase
+      .from('tarefas')
+      .update({ status: novoStatus, atualizado_em: new Date().toISOString() })
+      .eq('id', draggableId)
+
+    // Se a coluna atualizado_em ainda não existir no banco, tenta só o status
+    if (error?.message?.toLowerCase().includes('atualizado_em')) {
+      ;({ error } = await supabase.from('tarefas').update({ status: novoStatus }).eq('id', draggableId))
+    }
 
     if (error) {
       console.error('Erro ao mover tarefa:', error)
