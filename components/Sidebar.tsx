@@ -67,6 +67,7 @@ export default function Sidebar() {
     { href: '/calendario', label: 'Calendário', icon: '📅', permission: 'calendario' },
     { href: '/relatorios', label: 'Relatórios', icon: '📈', permission: 'relatorios' },
     { href: '/contratos', label: 'Contratos', icon: '📝', permission: 'contratos' },
+    { href: '/cobrancas', label: 'Cobranças', icon: '💳', permission: 'cobrancas' },
     { href: '/usuarios', label: 'Usuários', icon: '👤', permission: 'usuarios' },
     { href: '/escritorio', label: 'Meu Escritório', icon: '🏢', permission: 'escritorio' },
   ]
