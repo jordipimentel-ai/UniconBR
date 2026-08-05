@@ -63,6 +63,7 @@ export default function FinanceiroPage() {
   const [mostrarForm, setMostrarForm] = useState(false)
   const [contratoEditando, setContratoEditando] = useState<ContratoAtivo | null>(null)
   const [filtroStatus, setFiltroStatus] = useState<'todos' | StatusCobranca>('todos')
+  const [filtroCompetencia, setFiltroCompetencia] = useState<'todos' | string>('todos')
 
   async function carregarTudo() {
     const [{ data: contratosData }, { data: cobrancasData }, { data: despesasData }] = await Promise.all([
@@ -117,7 +118,12 @@ export default function FinanceiroPage() {
     await carregarTudo()
   }
 
-  const cobrancasFiltradas = cobrancas.filter((c) => filtroStatus === 'todos' || c.status === filtroStatus)
+  const competenciasDisponiveis = Array.from(new Set(cobrancas.map((c) => c.competencia))).sort((a, b) => b.localeCompare(a))
+
+  const cobrancasFiltradas = cobrancas.filter((c) =>
+    (filtroStatus === 'todos' || c.status === filtroStatus) &&
+    (filtroCompetencia === 'todos' || c.competencia === filtroCompetencia)
+  )
 
   if (loading) {
     return (
@@ -246,17 +252,29 @@ export default function FinanceiroPage() {
             <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-900">Cobranças</h2>
-                <select
-                  value={filtroStatus}
-                  onChange={(e) => setFiltroStatus(e.target.value as any)}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-                >
-                  <option value="todos">Todos os status</option>
-                  <option value="pendente">Pendente</option>
-                  <option value="atrasado">Atrasado</option>
-                  <option value="pago">Pago</option>
-                  <option value="cancelado">Cancelado</option>
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={filtroCompetencia}
+                    onChange={(e) => setFiltroCompetencia(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                  >
+                    <option value="todos">Todos os meses</option>
+                    {competenciasDisponiveis.map((comp) => (
+                      <option key={comp} value={comp}>Referente a {formatCompetencia(comp)}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={filtroStatus}
+                    onChange={(e) => setFiltroStatus(e.target.value as any)}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                  >
+                    <option value="todos">Todos os status</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="atrasado">Atrasado</option>
+                    <option value="pago">Pago</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </div>
               </div>
 
               {cobrancasFiltradas.length === 0 ? (
@@ -268,7 +286,7 @@ export default function FinanceiroPage() {
                       <tr className="border-b border-gray-200 text-left text-gray-600">
                         <th className="py-2 pr-4">Nº Contrato</th>
                         <th className="py-2 pr-4">Cliente</th>
-                        <th className="py-2 pr-4">Competência</th>
+                        <th className="py-2 pr-4">Mês Referente</th>
                         <th className="py-2 pr-4">Valor</th>
                         <th className="py-2 pr-4">Vencimento</th>
                         <th className="py-2 pr-4">Status</th>
