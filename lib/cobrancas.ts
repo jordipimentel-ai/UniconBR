@@ -1,14 +1,34 @@
 import { supabase } from './supabase'
 
+export type TerminoTipo = 'periodo' | 'indeterminado'
+export type DescontoTipo = 'valor' | 'percentual'
+
 export interface ContratoAtivo {
   id: string
   cliente_id: string
+  numero_contrato: string | null
   descricao: string
   valor_mensal: number
   dia_vencimento: number
+  dia_geracao: number
   data_inicio: string // 'YYYY-MM-DD'
   ativo: boolean
+  categoria_financeira: string | null
+  vendedor_id: string | null
+  servico_id: string | null
+  itens_valor: number | null
+  desconto_tipo: DescontoTipo
+  desconto_valor: number
+  forma_pagamento: string | null
+  conta_recebimento_id: string | null
+  recorrencia_intervalo: number
+  recorrencia_unidade: 'mes' | 'ano'
+  termino_tipo: TerminoTipo
+  data_termino: string | null
   clientes?: { nome_razao_social: string }
+  users?: { nome_completo: string }
+  servicos_cobranca?: { nome: string }
+  contas_recebimento?: { nome: string }
 }
 
 export type StatusCobranca = 'pendente' | 'pago' | 'atrasado' | 'cancelado'
@@ -24,11 +44,25 @@ export interface Cobranca {
   data_pagamento: string | null
   observacoes: string | null
   clientes?: { nome_razao_social: string }
-  contratos_ativos?: { descricao: string }
+  contratos_ativos?: { descricao: string; numero_contrato: string | null }
 }
 
-const SELECT_CONTRATOS = '*, clientes(nome_razao_social)'
-const SELECT_COBRANCAS = '*, clientes(nome_razao_social), contratos_ativos(descricao)'
+export interface ServicoCobranca {
+  id: string
+  nome: string
+  valor_padrao: number | null
+  ativo: boolean
+}
+
+export interface ContaRecebimento {
+  id: string
+  nome: string
+  tipo: 'Caixa' | 'Banco'
+  ativo: boolean
+}
+
+const SELECT_CONTRATOS = '*, clientes(nome_razao_social), users(nome_completo), servicos_cobranca(nome), contas_recebimento(nome)'
+const SELECT_COBRANCAS = '*, clientes(nome_razao_social), contratos_ativos(descricao, numero_contrato)'
 
 export async function listarContratosAtivos() {
   const { data, error } = await supabase
@@ -39,13 +73,34 @@ export async function listarContratosAtivos() {
   return { data: (data as unknown as ContratoAtivo[] | null) || [], error: error?.message || null }
 }
 
-export async function criarContratoAtivo(dados: {
+export async function gerarProximoNumeroContrato() {
+  const { count } = await supabase.from('contratos_ativos').select('id', { count: 'exact', head: true })
+  return String((count || 0) + 1)
+}
+
+export interface NovoContratoAtivo {
   cliente_id: string
+  numero_contrato: string
   descricao: string
   valor_mensal: number
   dia_vencimento: number
+  dia_geracao: number
   data_inicio: string
-}) {
+  categoria_financeira?: string
+  vendedor_id?: string | null
+  servico_id?: string | null
+  itens_valor?: number
+  desconto_tipo?: DescontoTipo
+  desconto_valor?: number
+  forma_pagamento?: string
+  conta_recebimento_id?: string | null
+  recorrencia_intervalo?: number
+  recorrencia_unidade?: 'mes' | 'ano'
+  termino_tipo?: TerminoTipo
+  data_termino?: string | null
+}
+
+export async function criarContratoAtivo(dados: NovoContratoAtivo) {
   const { error } = await supabase.from('contratos_ativos').insert([dados])
   return { success: !error, error: error?.message || null }
 }
@@ -64,20 +119,28 @@ export async function listarCobrancas() {
   return { data: (data as unknown as Cobranca[] | null) || [], error: error?.message || null }
 }
 
-function competenciaAtual(): { ano: number; mes: number; data: string } {
+function competenciaAtual(): { ano: number; mes: number; dia: number; data: string } {
   const hoje = new Date()
   const ano = hoje.getFullYear()
   const mes = hoje.getMonth() + 1
-  return { ano, mes, data: `${ano}-${String(mes).padStart(2, '0')}-01` }
+  const dia = hoje.getDate()
+  return { ano, mes, dia, data: `${ano}-${String(mes).padStart(2, '0')}-01` }
 }
 
 // Garante que exista uma cobrança do mês atual para cada contrato ativo —
-// não sobrescreve cobranças já existentes (pagas ou não) daquele mês
+// respeita o dia de geração e a data de término, e não sobrescreve
+// cobranças já existentes (pagas ou não) daquele mês
 export async function gerarCobrancasDoMes() {
   const { data: contratos } = await listarContratosAtivos()
-  const { ano, mes, data: competencia } = competenciaAtual()
+  const { ano, mes, dia, data: competencia } = competenciaAtual()
 
-  const ativos = contratos.filter((c) => c.ativo && c.data_inicio <= competencia)
+  const ativos = contratos.filter((c) => {
+    if (!c.ativo) return false
+    if (c.data_inicio > competencia) return false
+    if (dia < (c.dia_geracao || 1)) return false
+    if (c.termino_tipo === 'periodo' && c.data_termino && c.data_termino < competencia) return false
+    return true
+  })
   if (ativos.length === 0) return { criadas: 0, error: null }
 
   const linhas = ativos.map((c) => ({
@@ -126,5 +189,55 @@ export async function reverterCobrancaParaPendente(id: string) {
 
 export async function excluirCobranca(id: string) {
   const { error } = await supabase.from('cobrancas').delete().eq('id', id)
+  return { success: !error, error: error?.message || null }
+}
+
+// --- Serviços (submenu de Cobranças) ---
+
+export async function listarServicos() {
+  const { data, error } = await supabase
+    .from('servicos_cobranca')
+    .select('*')
+    .eq('ativo', true)
+    .order('nome')
+  return { data: (data as ServicoCobranca[] | null) || [], error: error?.message || null }
+}
+
+export async function criarServico(nome: string, valorPadrao?: number | null) {
+  const { data, error } = await supabase
+    .from('servicos_cobranca')
+    .insert([{ nome, valor_padrao: valorPadrao ?? null }])
+    .select()
+    .single()
+  return { data: data as ServicoCobranca | null, error: error?.message || null }
+}
+
+export async function excluirServico(id: string) {
+  const { error } = await supabase.from('servicos_cobranca').update({ ativo: false }).eq('id', id)
+  return { success: !error, error: error?.message || null }
+}
+
+// --- Contas de Recebimento (submenu de Cobranças) ---
+
+export async function listarContasRecebimento() {
+  const { data, error } = await supabase
+    .from('contas_recebimento')
+    .select('*')
+    .eq('ativo', true)
+    .order('nome')
+  return { data: (data as ContaRecebimento[] | null) || [], error: error?.message || null }
+}
+
+export async function criarContaRecebimento(nome: string, tipo: 'Caixa' | 'Banco') {
+  const { data, error } = await supabase
+    .from('contas_recebimento')
+    .insert([{ nome, tipo }])
+    .select()
+    .single()
+  return { data: data as ContaRecebimento | null, error: error?.message || null }
+}
+
+export async function excluirContaRecebimento(id: string) {
+  const { error } = await supabase.from('contas_recebimento').update({ ativo: false }).eq('id', id)
   return { success: !error, error: error?.message || null }
 }
