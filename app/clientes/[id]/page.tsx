@@ -8,6 +8,8 @@ import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
 import RegistrosFinanceirosCliente from '@/components/RegistrosFinanceirosCliente'
 import UploadPGDASCliente from '@/components/UploadPGDASCliente'
+import AnexosCliente from '@/components/AnexosCliente'
+import SecaoAccordion from '@/components/SecaoAccordion'
 import { buscarDadosCNPJ } from '@/lib/cnpj-lookup'
 import { formatDataLocal } from '@/lib/date-utils'
 
@@ -30,6 +32,12 @@ interface Cliente {
   porte?: string
   natureza_juridica?: string
   data_abertura?: string
+  email_cobranca?: string
+  whatsapp_cobranca?: string
+  ie_indicador?: string
+  inscricao_estadual?: string
+  inscricao_municipal?: string
+  inscricao_suframa?: string
 }
 
 const REGIME_LABELS: Record<string, string> = {
@@ -264,6 +272,29 @@ export default function ClienteDetalhePage() {
                     <p className="text-gray-500">Data de Abertura</p>
                     <p className="text-gray-900 font-medium">{cliente.data_abertura ? formatDataLocal(cliente.data_abertura) : '—'}</p>
                   </div>
+                  <div>
+                    <p className="text-gray-500">Email de Cobrança</p>
+                    <p className="text-gray-900 font-medium">{cliente.email_cobranca || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">WhatsApp de Cobrança</p>
+                    <p className="text-gray-900 font-medium">{cliente.whatsapp_cobranca || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Inscrição Estadual</p>
+                    <p className="text-gray-900 font-medium">
+                      {cliente.inscricao_estadual || '—'}
+                      {cliente.ie_indicador && <span className="text-gray-500"> ({cliente.ie_indicador})</span>}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Inscrição Municipal</p>
+                    <p className="text-gray-900 font-medium">{cliente.inscricao_municipal || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Inscrição Suframa</p>
+                    <p className="text-gray-900 font-medium">{cliente.inscricao_suframa || '—'}</p>
+                  </div>
                   <div className="col-span-2">
                     <p className="text-gray-500">Endereço</p>
                     <p className="text-gray-900 font-medium whitespace-pre-wrap">{cliente.endereco || '—'}</p>
@@ -362,12 +393,40 @@ export default function ClienteDetalhePage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Telefone
+                        Telefone Celular
                       </label>
                       <input
                         type="text"
                         name="telefone"
                         value={formData.telefone || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contato para Cobrança e Faturamento */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Contato para Cobrança e Faturamento</h3>
+                  <p className="text-xs text-gray-500 mb-4">Cobranças e contratos são enviados para o(s) contato(s) informado(s) aqui.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                      <input
+                        type="email"
+                        name="email_cobranca"
+                        value={formData.email_cobranca || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">WhatsApp</label>
+                      <input
+                        type="text"
+                        name="whatsapp_cobranca"
+                        value={formData.whatsapp_cobranca || ''}
                         onChange={handleChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                       />
@@ -432,6 +491,50 @@ export default function ClienteDetalhePage() {
                         type="text"
                         name="representante"
                         value={formData.representante || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Indicador de Inscrição Estadual</label>
+                      <select
+                        name="ie_indicador"
+                        value={formData.ie_indicador || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      >
+                        <option value="">Selecione</option>
+                        <option value="Contribuinte">Contribuinte</option>
+                        <option value="Contribuinte Isento">Contribuinte Isento</option>
+                        <option value="Não Contribuinte">Não Contribuinte</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Inscrição Estadual</label>
+                      <input
+                        type="text"
+                        name="inscricao_estadual"
+                        value={formData.inscricao_estadual || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Inscrição Municipal</label>
+                      <input
+                        type="text"
+                        name="inscricao_municipal"
+                        value={formData.inscricao_municipal || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Inscrição Suframa</label>
+                      <input
+                        type="text"
+                        name="inscricao_suframa"
+                        value={formData.inscricao_suframa || ''}
                         onChange={handleChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                       />
@@ -563,6 +666,12 @@ export default function ClienteDetalhePage() {
             <UploadPGDASCliente clienteId={clienteId} onSalvo={() => setHistoricoKey((k) => k + 1)} />
 
             <RegistrosFinanceirosCliente key={historicoKey} clienteId={clienteId} />
+
+            <div className="pt-6 border-t">
+              <SecaoAccordion titulo="📎 Anexos">
+                <AnexosCliente clienteId={clienteId} />
+              </SecaoAccordion>
+            </div>
           </div>
         </main>
       </div>

@@ -19,6 +19,12 @@ interface Cliente {
   porte?: string
   natureza_juridica?: string
   data_abertura?: string
+  email_cobranca?: string
+  whatsapp_cobranca?: string
+  ie_indicador?: string
+  inscricao_estadual?: string
+  inscricao_municipal?: string
+  inscricao_suframa?: string
 }
 
 // Buscar cliente por ID
