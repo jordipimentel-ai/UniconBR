@@ -183,7 +183,15 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, contratoExis
   const totalLiquido = itens - desconto
 
   const dataPrimeiraVenda = proximaOcorrencia(dataInicio, diaGeracao)
-  const dataPrimeiroVencimento = proximaOcorrencia(dataInicio, diaVencimento)
+  // O vencimento é calculado a partir da data em que a cobrança é gerada
+  // (não da data de início do contrato) — se o dia de vencimento é anterior
+  // ao dia de geração, ele cai no mês seguinte ao da geração
+  const dataPrimeiroVencimento = dataPrimeiraVenda
+    ? proximaOcorrencia(
+        `${dataPrimeiraVenda.getFullYear()}-${String(dataPrimeiraVenda.getMonth() + 1).padStart(2, '0')}-${String(dataPrimeiraVenda.getDate()).padStart(2, '0')}`,
+        diaVencimento
+      )
+    : null
   const vigenciaMeses = terminoTipo === 'periodo' ? diffMeses(dataInicio, dataTermino) : null
 
   async function handleSalvar() {

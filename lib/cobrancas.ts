@@ -150,14 +150,29 @@ export async function gerarCobrancasDoMes() {
   })
   if (ativos.length === 0) return { criadas: 0, error: null }
 
-  const linhas = ativos.map((c) => ({
-    contrato_ativo_id: c.id,
-    cliente_id: c.cliente_id,
-    competencia,
-    valor: c.valor_mensal,
-    vencimento: `${ano}-${String(mes).padStart(2, '0')}-${String(c.dia_vencimento).padStart(2, '0')}`,
-    status: 'pendente' as StatusCobranca,
-  }))
+  const linhas = ativos.map((c) => {
+    // Se o dia de vencimento é anterior ao dia de geração, o vencimento cai
+    // no mês seguinte — senão a cobrança venceria antes mesmo de existir
+    // (ex.: gerada dia 28, vencendo dia 2 → vence 02 do mês seguinte, não do mesmo mês)
+    let anoVenc = ano
+    let mesVenc = mes
+    if (c.dia_vencimento < (c.dia_geracao || 1)) {
+      mesVenc += 1
+      if (mesVenc > 12) {
+        mesVenc = 1
+        anoVenc += 1
+      }
+    }
+
+    return {
+      contrato_ativo_id: c.id,
+      cliente_id: c.cliente_id,
+      competencia,
+      valor: c.valor_mensal,
+      vencimento: `${anoVenc}-${String(mesVenc).padStart(2, '0')}-${String(c.dia_vencimento).padStart(2, '0')}`,
+      status: 'pendente' as StatusCobranca,
+    }
+  })
 
   const { error } = await supabase
     .from('cobrancas')
