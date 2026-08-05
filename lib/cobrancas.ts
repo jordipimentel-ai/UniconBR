@@ -135,16 +135,17 @@ function competenciaAtual(): { ano: number; mes: number; dia: number; data: stri
 }
 
 // Garante que exista uma cobrança do mês atual para cada contrato ativo —
-// respeita o dia de geração e a data de término, e não sobrescreve
-// cobranças já existentes (pagas ou não) daquele mês
+// já entra referente ao mês corrente assim que o mês começa (não espera o
+// dia de geração chegar: se estamos em agosto, a cobrança já é "de agosto"),
+// respeita a data de término, e não sobrescreve cobranças já existentes
+// (pagas ou não) daquele mês
 export async function gerarCobrancasDoMes() {
   const { data: contratos } = await listarContratosAtivos()
-  const { ano, mes, dia, data: competencia } = competenciaAtual()
+  const { ano, mes, data: competencia } = competenciaAtual()
 
   const ativos = contratos.filter((c) => {
     if (!c.ativo) return false
     if (c.data_inicio > competencia) return false
-    if (dia < (c.dia_geracao || 1)) return false
     if (c.termino_tipo === 'periodo' && c.data_termino && c.data_termino < competencia) return false
     return true
   })

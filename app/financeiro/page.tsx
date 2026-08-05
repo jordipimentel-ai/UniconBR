@@ -37,7 +37,7 @@ interface Usuario {
 }
 
 const STATUS_CONFIG: Record<StatusCobranca, { label: string; cor: string }> = {
-  pendente: { label: '⚪ Pendente', cor: 'bg-gray-100 text-gray-800' },
+  pendente: { label: '🟢 Em dia', cor: 'bg-blue-100 text-blue-800' },
   pago: { label: '✅ Pago', cor: 'bg-green-100 text-green-800' },
   atrasado: { label: '🔴 Atrasado', cor: 'bg-red-100 text-red-800' },
   cancelado: { label: '⛔ Cancelado', cor: 'bg-gray-100 text-gray-500' },
@@ -283,7 +283,7 @@ export default function FinanceiroPage() {
                     className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
                   >
                     <option value="todos">Todos os status</option>
-                    <option value="pendente">Pendente</option>
+                    <option value="pendente">Em dia</option>
                     <option value="atrasado">Atrasado</option>
                     <option value="pago">Pago</option>
                     <option value="cancelado">Cancelado</option>
