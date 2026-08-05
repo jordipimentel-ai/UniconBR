@@ -17,6 +17,7 @@ import {
   StatusCobranca,
   listarContratosAtivos,
   atualizarContratoAtivo,
+  excluirContratoAtivo,
   listarCobrancas,
   gerarCobrancasDoMes,
   atualizarStatusAtrasados,
@@ -105,6 +106,16 @@ export default function FinanceiroPage() {
 
   async function handleToggleAtivo(contrato: ContratoAtivo) {
     await atualizarContratoAtivo(contrato.id, { ativo: !contrato.ativo })
+    await carregarTudo()
+  }
+
+  async function handleExcluirContrato(contrato: ContratoAtivo) {
+    if (!confirm(`Excluir o contrato nº ${contrato.numero_contrato || contrato.id}? As cobranças já geradas por ele também serão apagadas. Essa ação não pode ser desfeita.`)) return
+    const { success, error } = await excluirContratoAtivo(contrato.id)
+    if (!success) {
+      alert(error || 'Erro ao excluir contrato')
+      return
+    }
     await carregarTudo()
   }
 
@@ -236,6 +247,9 @@ export default function FinanceiroPage() {
                               </button>
                               <button onClick={() => handleToggleAtivo(c)} className="text-gray-600 hover:text-gray-700 font-medium">
                                 {c.ativo ? 'Desativar' : 'Reativar'}
+                              </button>
+                              <button onClick={() => handleExcluirContrato(c)} className="text-red-600 hover:text-red-700 font-medium">
+                                Excluir
                               </button>
                             </div>
                           </td>

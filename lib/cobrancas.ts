@@ -110,6 +110,13 @@ export async function atualizarContratoAtivo(id: string, patch: Partial<Contrato
   return { success: !error, error: error?.message || null }
 }
 
+// Exclui o contrato ativo e, por causa do ON DELETE CASCADE, todas as
+// cobranças já geradas a partir dele também são removidas junto
+export async function excluirContratoAtivo(id: string) {
+  const { error } = await supabase.from('contratos_ativos').delete().eq('id', id)
+  return { success: !error, error: error?.message || null }
+}
+
 export async function listarCobrancas() {
   const { data, error } = await supabase
     .from('cobrancas')
