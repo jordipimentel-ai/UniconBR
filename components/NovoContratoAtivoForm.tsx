@@ -5,12 +5,14 @@ import { formatMoeda } from '@/lib/contratos'
 import {
   ServicoCobranca,
   ContaRecebimento,
+  ContratoAtivo,
   listarServicos,
   criarServico,
   listarContasRecebimento,
   criarContaRecebimento,
   gerarProximoNumeroContrato,
   criarContratoAtivo,
+  atualizarContratoAtivo,
   DescontoTipo,
   TerminoTipo,
 } from '@/lib/cobrancas'
@@ -28,6 +30,7 @@ interface Usuario {
 interface Props {
   clientes: Cliente[]
   usuarios: Usuario[]
+  contratoExistente?: ContratoAtivo
   onCriado: () => void
   onCancelar: () => void
 }
@@ -85,7 +88,8 @@ function inputMoeda(valor: number | null, onChange: (v: number | null) => void, 
 
 const FORMAS_PAGAMENTO = ['Dinheiro', 'PIX', 'Boleto Bancário', 'Cartão de Crédito', 'Transferência Bancária']
 
-export default function NovoContratoAtivoForm({ clientes, usuarios, onCriado, onCancelar }: Props) {
+export default function NovoContratoAtivoForm({ clientes, usuarios, contratoExistente, onCriado, onCancelar }: Props) {
+  const editando = !!contratoExistente
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
 
@@ -96,33 +100,35 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, onCriado, on
 
   const hoje = new Date().toISOString().slice(0, 10)
 
-  const [numeroContrato, setNumeroContrato] = useState('')
-  const [clienteId, setClienteId] = useState('')
-  const [dataInicio, setDataInicio] = useState(hoje)
-  const [diaGeracao, setDiaGeracao] = useState(5)
+  const [numeroContrato, setNumeroContrato] = useState(contratoExistente?.numero_contrato || '')
+  const [clienteId, setClienteId] = useState(contratoExistente?.cliente_id || '')
+  const [dataInicio, setDataInicio] = useState(contratoExistente?.data_inicio || hoje)
+  const [diaGeracao, setDiaGeracao] = useState(contratoExistente?.dia_geracao || 5)
 
-  const [recorrenciaIntervalo, setRecorrenciaIntervalo] = useState(1)
-  const [recorrenciaUnidade, setRecorrenciaUnidade] = useState<'mes' | 'ano'>('mes')
-  const [terminoTipo, setTerminoTipo] = useState<TerminoTipo>('indeterminado')
-  const [dataTermino, setDataTermino] = useState('')
+  const [recorrenciaIntervalo, setRecorrenciaIntervalo] = useState(contratoExistente?.recorrencia_intervalo || 1)
+  const [recorrenciaUnidade, setRecorrenciaUnidade] = useState<'mes' | 'ano'>(contratoExistente?.recorrencia_unidade || 'mes')
+  const [terminoTipo, setTerminoTipo] = useState<TerminoTipo>(contratoExistente?.termino_tipo || 'indeterminado')
+  const [dataTermino, setDataTermino] = useState(contratoExistente?.data_termino || '')
 
-  const [categoriaFinanceira, setCategoriaFinanceira] = useState('Receitas de Serviços')
-  const [vendedorId, setVendedorId] = useState('')
+  const [categoriaFinanceira, setCategoriaFinanceira] = useState(contratoExistente?.categoria_financeira || 'Receitas de Serviços')
+  const [vendedorId, setVendedorId] = useState(contratoExistente?.vendedor_id || '')
 
-  const [servicoId, setServicoId] = useState('')
-  const [itensValor, setItensValor] = useState<number | null>(null)
+  const [servicoId, setServicoId] = useState(contratoExistente?.servico_id || '')
+  const [itensValor, setItensValor] = useState<number | null>(contratoExistente?.itens_valor ?? null)
 
-  const [descontoTipo, setDescontoTipo] = useState<DescontoTipo>('valor')
-  const [descontoValor, setDescontoValor] = useState<number | null>(null)
+  const [descontoTipo, setDescontoTipo] = useState<DescontoTipo>(contratoExistente?.desconto_tipo || 'valor')
+  const [descontoValor, setDescontoValor] = useState<number | null>(contratoExistente?.desconto_valor ?? null)
 
-  const [formaPagamento, setFormaPagamento] = useState('')
-  const [contaRecebimentoId, setContaRecebimentoId] = useState('')
-  const [diaVencimento, setDiaVencimento] = useState(5)
+  const [formaPagamento, setFormaPagamento] = useState(contratoExistente?.forma_pagamento || '')
+  const [contaRecebimentoId, setContaRecebimentoId] = useState(contratoExistente?.conta_recebimento_id || '')
+  const [diaVencimento, setDiaVencimento] = useState(contratoExistente?.dia_vencimento || 5)
 
   useEffect(() => {
     async function init() {
-      const numero = await gerarProximoNumeroContrato()
-      setNumeroContrato(numero)
+      if (!editando) {
+        const numero = await gerarProximoNumeroContrato()
+        setNumeroContrato(numero)
+      }
       const [{ data: servicosData }, { data: contasData }] = await Promise.all([
         listarServicos(),
         listarContasRecebimento(),
@@ -131,6 +137,7 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, onCriado, on
       setContas(contasData)
     }
     init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleRegenerarNumero() {
@@ -203,7 +210,7 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, onCriado, on
 
     const servicoNome = servicos.find((s) => s.id === servicoId)?.nome || 'Honorários'
 
-    const { success, error } = await criarContratoAtivo({
+    const payload = {
       cliente_id: clienteId,
       numero_contrato: numeroContrato.trim(),
       descricao: servicoNome,
@@ -223,12 +230,16 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, onCriado, on
       recorrencia_unidade: recorrenciaUnidade,
       termino_tipo: terminoTipo,
       data_termino: terminoTipo === 'periodo' ? dataTermino : null,
-    })
+    }
+
+    const { success, error } = editando
+      ? await atualizarContratoAtivo(contratoExistente!.id, payload)
+      : await criarContratoAtivo(payload)
 
     setSalvando(false)
 
     if (!success) {
-      setErro(error || 'Erro ao criar contrato')
+      setErro(error || 'Erro ao salvar contrato')
       return
     }
 
@@ -512,7 +523,7 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, onCriado, on
           disabled={salvando}
           className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition"
         >
-          {salvando ? 'Salvando...' : 'Salvar Contrato'}
+          {salvando ? 'Salvando...' : editando ? 'Salvar Alterações' : 'Salvar Contrato'}
         </button>
         <button onClick={onCancelar} className="px-6 py-2 bg-gray-200 text-gray-900 font-medium rounded-lg hover:bg-gray-300 transition">
           Cancelar

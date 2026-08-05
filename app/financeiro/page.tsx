@@ -9,6 +9,8 @@ import { formatDataLocal } from '@/lib/date-utils'
 import NovoContratoAtivoForm from '@/components/NovoContratoAtivoForm'
 import ServicosCobrancaPanel from '@/components/ServicosCobrancaPanel'
 import ContasRecebimentoPanel from '@/components/ContasRecebimentoPanel'
+import DespesasPanel from '@/components/DespesasPanel'
+import DashboardFinanceiro from '@/components/DashboardFinanceiro'
 import {
   ContratoAtivo,
   Cobranca,
@@ -21,6 +23,7 @@ import {
   marcarCobrancaComoPaga,
   reverterCobrancaParaPendente,
 } from '@/lib/cobrancas'
+import { Despesa, listarDespesas, atualizarStatusDespesasAtrasadas } from '@/lib/despesas'
 
 interface Cliente {
   id: string
@@ -45,27 +48,31 @@ function formatCompetencia(data: string): string {
   return `${nomes[parseInt(mes, 10) - 1]}/${ano}`
 }
 
-const ABAS = ['Contratos Ativos', 'Cobranças', 'Serviços', 'Contas'] as const
+const ABAS = ['Dashboard', 'Contratos Ativos', 'Cobranças', 'Despesas', 'Serviços', 'Contas'] as const
 type Aba = typeof ABAS[number]
 
-export default function CobrancasPage() {
+export default function FinanceiroPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [aba, setAba] = useState<Aba>('Contratos Ativos')
+  const [aba, setAba] = useState<Aba>('Dashboard')
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [contratos, setContratos] = useState<ContratoAtivo[]>([])
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([])
+  const [despesas, setDespesas] = useState<Despesa[]>([])
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [contratoEditando, setContratoEditando] = useState<ContratoAtivo | null>(null)
   const [filtroStatus, setFiltroStatus] = useState<'todos' | StatusCobranca>('todos')
 
   async function carregarTudo() {
-    const [{ data: contratosData }, { data: cobrancasData }] = await Promise.all([
+    const [{ data: contratosData }, { data: cobrancasData }, { data: despesasData }] = await Promise.all([
       listarContratosAtivos(),
       listarCobrancas(),
+      listarDespesas(),
     ])
     setContratos(contratosData)
     setCobrancas(cobrancasData)
+    setDespesas(despesasData)
   }
 
   useEffect(() => {
@@ -85,6 +92,7 @@ export default function CobrancasPage() {
 
       await gerarCobrancasDoMes()
       await atualizarStatusAtrasados()
+      await atualizarStatusDespesasAtrasadas()
       await carregarTudo()
 
       setLoading(false)
@@ -126,18 +134,18 @@ export default function CobrancasPage() {
       <div className="ml-64">
         <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
           <div className="px-8 py-6">
-            <h1 className="text-3xl font-bold text-gray-900">💳 Cobranças</h1>
-            <p className="text-gray-600 text-sm mt-1">Contratos, honorários mensais e controle de recebimentos</p>
+            <h1 className="text-3xl font-bold text-gray-900">💰 Financeiro</h1>
+            <p className="text-gray-600 text-sm mt-1">Contratos, honorários mensais, despesas e fluxo de caixa</p>
           </div>
         </header>
 
         <main className="px-8 py-8 max-w-6xl mx-auto">
-          <div className="flex gap-2 bg-white rounded-lg shadow-sm border border-gray-200 p-2 mb-6">
+          <div className="flex gap-2 bg-white rounded-lg shadow-sm border border-gray-200 p-2 mb-6 overflow-x-auto">
             {ABAS.map((a) => (
               <button
                 key={a}
-                onClick={() => { setAba(a); setMostrarForm(false) }}
-                className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition text-sm ${
+                onClick={() => { setAba(a); setMostrarForm(false); setContratoEditando(null) }}
+                className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition text-sm whitespace-nowrap ${
                   aba === a ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
@@ -146,13 +154,17 @@ export default function CobrancasPage() {
             ))}
           </div>
 
+          {aba === 'Dashboard' && (
+            <DashboardFinanceiro contratos={contratos} cobrancas={cobrancas} despesas={despesas} />
+          )}
+
           {aba === 'Contratos Ativos' && (
             <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-900">Contratos Ativos de Cobrança</h2>
                 {!mostrarForm && (
                   <button
-                    onClick={() => setMostrarForm(true)}
+                    onClick={() => { setContratoEditando(null); setMostrarForm(true) }}
                     className="text-sm px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
                   >
                     + Novo Contrato
@@ -165,9 +177,11 @@ export default function CobrancasPage() {
                   <NovoContratoAtivoForm
                     clientes={clientes}
                     usuarios={usuarios}
-                    onCancelar={() => setMostrarForm(false)}
+                    contratoExistente={contratoEditando || undefined}
+                    onCancelar={() => { setMostrarForm(false); setContratoEditando(null) }}
                     onCriado={async () => {
                       setMostrarForm(false)
+                      setContratoEditando(null)
                       await gerarCobrancasDoMes()
                       await carregarTudo()
                     }}
@@ -207,9 +221,17 @@ export default function CobrancasPage() {
                             </span>
                           </td>
                           <td className="py-2 pr-4">
-                            <button onClick={() => handleToggleAtivo(c)} className="text-blue-600 hover:text-blue-700 font-medium">
-                              {c.ativo ? 'Desativar' : 'Reativar'}
-                            </button>
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => { setContratoEditando(c); setMostrarForm(true) }}
+                                className="text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                Editar
+                              </button>
+                              <button onClick={() => handleToggleAtivo(c)} className="text-gray-600 hover:text-gray-700 font-medium">
+                                {c.ativo ? 'Desativar' : 'Reativar'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -283,6 +305,13 @@ export default function CobrancasPage() {
                   </table>
                 </div>
               )}
+            </section>
+          )}
+
+          {aba === 'Despesas' && (
+            <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+              <h2 className="text-lg font-bold text-gray-900">Contas a Pagar</h2>
+              <DespesasPanel />
             </section>
           )}
 
