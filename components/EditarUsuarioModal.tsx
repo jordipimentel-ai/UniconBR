@@ -36,6 +36,9 @@ export default function EditarUsuarioModal({
     role: usuario.role as 'admin' | 'colaborador',
     avatar_url: usuario.avatar_url || '',
   })
+  const [mostrarSenha, setMostrarSenha] = useState(false)
+  const [novaSenha, setNovaSenha] = useState('')
+  const [confirmarSenha, setConfirmarSenha] = useState('')
 
   useEffect(() => {
     async function loadPermissions() {
@@ -82,6 +85,18 @@ export default function EditarUsuarioModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    if (mostrarSenha && novaSenha) {
+      if (novaSenha.length < 6) {
+        setError('A nova senha precisa ter pelo menos 6 caracteres')
+        return
+      }
+      if (novaSenha !== confirmarSenha) {
+        setError('As senhas não coincidem')
+        return
+      }
+    }
+
     setLoading(true)
 
     try {
@@ -96,6 +111,17 @@ export default function EditarUsuarioModal({
         .eq('id', usuario.id)
 
       if (updateError) throw updateError
+
+      // Trocar a senha, se foi preenchida
+      if (mostrarSenha && novaSenha) {
+        const res = await fetch('/api/users/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: usuario.id, password: novaSenha }),
+        })
+        const resultado = await res.json()
+        if (!res.ok) throw new Error(resultado.error || 'Erro ao definir a nova senha')
+      }
 
       // Se for colaborador, atualizar permissões
       if (formData.role === 'colaborador') {
@@ -221,6 +247,46 @@ export default function EditarUsuarioModal({
               className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 outline-none"
             />
             <p className="text-xs text-gray-500 mt-1">Email não pode ser alterado</p>
+          </div>
+
+          {/* Nova Senha */}
+          <div className="pt-2 border-t">
+            {!mostrarSenha ? (
+              <button
+                type="button"
+                onClick={() => setMostrarSenha(true)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                🔒 Definir nova senha
+              </button>
+            ) : (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">Nova Senha</label>
+                  <button
+                    type="button"
+                    onClick={() => { setMostrarSenha(false); setNovaSenha(''); setConfirmarSenha('') }}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                <input
+                  type="password"
+                  value={novaSenha}
+                  onChange={(e) => setNovaSenha(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+                <input
+                  type="password"
+                  value={confirmarSenha}
+                  onChange={(e) => setConfirmarSenha(e.target.value)}
+                  placeholder="Confirmar nova senha"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+              </div>
+            )}
           </div>
 
           {/* Permissões */}
