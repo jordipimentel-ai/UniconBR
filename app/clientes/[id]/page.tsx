@@ -12,6 +12,9 @@ import AnexosCliente from '@/components/AnexosCliente'
 import SecaoAccordion from '@/components/SecaoAccordion'
 import { buscarDadosCNPJ } from '@/lib/cnpj-lookup'
 import { formatDataLocal } from '@/lib/date-utils'
+import { formatarTelefone } from '@/lib/telefone'
+
+const SEGMENTOS = ['Comércio', 'Serviços', 'Comércio e Serviços']
 
 interface Cliente {
   id: string
@@ -157,6 +160,10 @@ export default function ClienteDetalhePage() {
       ...formData,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
     })
+  }
+
+  function handleTelefoneChange(campo: 'telefone' | 'whatsapp_cobranca', valor: string) {
+    setFormData({ ...formData, [campo]: formatarTelefone(valor) })
   }
 
   if (loading) {
@@ -399,7 +406,8 @@ export default function ClienteDetalhePage() {
                         type="text"
                         name="telefone"
                         value={formData.telefone || ''}
-                        onChange={handleChange}
+                        onChange={(e) => handleTelefoneChange('telefone', e.target.value)}
+                        placeholder="(82) 98298-8834"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                       />
                     </div>
@@ -427,7 +435,8 @@ export default function ClienteDetalhePage() {
                         type="text"
                         name="whatsapp_cobranca"
                         value={formData.whatsapp_cobranca || ''}
-                        onChange={handleChange}
+                        onChange={(e) => handleTelefoneChange('whatsapp_cobranca', e.target.value)}
+                        placeholder="(82) 98298-8834"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                       />
                     </div>
@@ -473,14 +482,17 @@ export default function ClienteDetalhePage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Segmento
                       </label>
-                      <input
-                        type="text"
+                      <select
                         name="segmento"
                         value={formData.segmento || ''}
                         onChange={handleChange}
-                        placeholder="Ex: Comércio, Serviços..."
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      />
+                      >
+                        <option value="">Selecione</option>
+                        {SEGMENTOS.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>

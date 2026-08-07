@@ -6,7 +6,10 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { buscarDadosCNPJ } from '@/lib/cnpj-lookup'
 import { uploadDocumentoCliente } from '@/lib/cliente-documentos'
+import { formatarTelefone } from '@/lib/telefone'
 import SecaoAccordion from '@/components/SecaoAccordion'
+
+const SEGMENTOS = ['Comércio', 'Serviços', 'Comércio e Serviços']
 
 export default function NovoClientePage() {
   const router = useRouter()
@@ -99,6 +102,10 @@ export default function NovoClientePage() {
       ...formData,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
     })
+  }
+
+  function handleTelefoneChange(campo: 'telefone' | 'whatsapp_cobranca', valor: string) {
+    setFormData({ ...formData, [campo]: formatarTelefone(valor) })
   }
 
   function handleAdicionarAnexos(e: React.ChangeEvent<HTMLInputElement>) {
@@ -224,7 +231,8 @@ export default function NovoClientePage() {
                     type="text"
                     name="telefone"
                     value={formData.telefone}
-                    onChange={handleChange}
+                    onChange={(e) => handleTelefoneChange('telefone', e.target.value)}
+                    placeholder="(82) 98298-8834"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
                 </div>
@@ -254,7 +262,8 @@ export default function NovoClientePage() {
                     type="text"
                     name="whatsapp_cobranca"
                     value={formData.whatsapp_cobranca}
-                    onChange={handleChange}
+                    onChange={(e) => handleTelefoneChange('whatsapp_cobranca', e.target.value)}
+                    placeholder="(82) 98298-8834"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
                 </div>
@@ -290,14 +299,17 @@ export default function NovoClientePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Segmento</label>
-                  <input
-                    type="text"
+                  <select
                     name="segmento"
                     value={formData.segmento}
                     onChange={handleChange}
-                    placeholder="Ex: Comércio, Serviços..."
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
+                  >
+                    <option value="">Selecione</option>
+                    {SEGMENTOS.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Representante (PJ)</label>
