@@ -75,7 +75,7 @@ export default function NovoEventoModal({ onClose, onEventoCreated, dataPadrao, 
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-8">
         <h2 className="text-3xl font-bold text-slate-900 mb-6">{isEditando ? 'Editar Evento' : 'Novo Evento'}</h2>
 

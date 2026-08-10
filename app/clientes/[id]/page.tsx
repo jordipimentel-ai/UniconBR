@@ -13,8 +13,24 @@ import SecaoAccordion from '@/components/SecaoAccordion'
 import { buscarDadosCNPJ } from '@/lib/cnpj-lookup'
 import { formatDataLocal } from '@/lib/date-utils'
 import { formatarTelefone } from '@/lib/telefone'
+import SelectPill from '@/components/SelectPill'
 
 const SEGMENTOS = ['Comércio', 'Serviços', 'Comércio e Serviços']
+const OPCOES_TIPO_PESSOA = [
+  { value: 'PF', label: 'Pessoa Física' },
+  { value: 'PJ', label: 'Pessoa Jurídica' },
+]
+const OPCOES_REGIME = [
+  { value: 'Simples', label: 'Simples Nacional' },
+  { value: 'Lucro Presumido', label: 'Lucro Presumido' },
+  { value: 'Lucro Real', label: 'Lucro Real' },
+]
+const OPCOES_SEGMENTO = SEGMENTOS.map((s) => ({ value: s, label: s }))
+const OPCOES_IE_INDICADOR = [
+  { value: 'Contribuinte', label: 'Contribuinte' },
+  { value: 'Contribuinte Isento', label: 'Contribuinte Isento' },
+  { value: 'Não Contribuinte', label: 'Não Contribuinte' },
+]
 
 interface Cliente {
   id: string
@@ -451,48 +467,33 @@ export default function ClienteDetalhePage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Tipo
                       </label>
-                      <select
-                        name="tipo"
+                      <SelectPill
                         value={formData.tipo || 'PF'}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      >
-                        <option value="PF">Pessoa Física</option>
-                        <option value="PJ">Pessoa Jurídica</option>
-                      </select>
+                        onChange={(v) => setFormData({ ...formData, tipo: v as 'PF' | 'PJ' })}
+                        options={OPCOES_TIPO_PESSOA}
+                      />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Regime Tributário
                       </label>
-                      <select
-                        name="regime_tributario"
+                      <SelectPill
                         value={formData.regime_tributario || 'Simples'}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      >
-                        <option value="Simples">Simples Nacional</option>
-                        <option value="Lucro Presumido">Lucro Presumido</option>
-                        <option value="Lucro Real">Lucro Real</option>
-                      </select>
+                        onChange={(v) => setFormData({ ...formData, regime_tributario: v })}
+                        options={OPCOES_REGIME}
+                      />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Segmento
                       </label>
-                      <select
-                        name="segmento"
+                      <SelectPill
                         value={formData.segmento || ''}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      >
-                        <option value="">Selecione</option>
-                        {SEGMENTOS.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+                        onChange={(v) => setFormData({ ...formData, segmento: v })}
+                        options={OPCOES_SEGMENTO}
+                      />
                     </div>
 
                     <div>
@@ -509,17 +510,11 @@ export default function ClienteDetalhePage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Indicador de Inscrição Estadual</label>
-                      <select
-                        name="ie_indicador"
+                      <SelectPill
                         value={formData.ie_indicador || ''}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      >
-                        <option value="">Selecione</option>
-                        <option value="Contribuinte">Contribuinte</option>
-                        <option value="Contribuinte Isento">Contribuinte Isento</option>
-                        <option value="Não Contribuinte">Não Contribuinte</option>
-                      </select>
+                        onChange={(v) => setFormData({ ...formData, ie_indicador: v })}
+                        options={OPCOES_IE_INDICADOR}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Inscrição Estadual</label>
@@ -690,7 +685,7 @@ export default function ClienteDetalhePage() {
 
       {/* Confirmação de Delete */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 max-w-sm">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Tem certeza?</h3>
             <p className="text-gray-600 mb-6">
