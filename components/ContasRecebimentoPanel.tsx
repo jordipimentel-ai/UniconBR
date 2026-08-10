@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ContaRecebimento, listarContasRecebimento, criarContaRecebimento, excluirContaRecebimento } from '@/lib/cobrancas'
+import SelectPill from '@/components/SelectPill'
 
 export default function ContasRecebimentoPanel() {
   const [contas, setContas] = useState<ContaRecebimento[]>([])
@@ -52,14 +53,15 @@ export default function ContasRecebimentoPanel() {
           placeholder="Nome da conta (ex: Caixa, Banco do Brasil)"
           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <select
+        <SelectPill
+          className="w-32"
           value={tipo}
-          onChange={(e) => setTipo(e.target.value as 'Caixa' | 'Banco')}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="Banco">Banco</option>
-          <option value="Caixa">Caixa</option>
-        </select>
+          onChange={(v) => setTipo(v as 'Caixa' | 'Banco')}
+          options={[
+            { value: 'Banco', label: 'Banco' },
+            { value: 'Caixa', label: 'Caixa' },
+          ]}
+        />
         <button
           onClick={handleCriar}
           className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition text-sm whitespace-nowrap"

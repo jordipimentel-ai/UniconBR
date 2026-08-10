@@ -16,6 +16,7 @@ import {
   DescontoTipo,
   TerminoTipo,
 } from '@/lib/cobrancas'
+import SelectPill from '@/components/SelectPill'
 
 interface Cliente {
   id: string
@@ -40,6 +41,8 @@ const DIAS_MES = Array.from({ length: 28 }, (_, i) => i + 1)
 function ordinalDia(dia: number): string {
   return `${dia}º dia do mês`
 }
+
+const OPCOES_DIAS_MES = DIAS_MES.map((d) => ({ value: String(d), label: ordinalDia(d) }))
 
 function proximaOcorrencia(dataInicio: string, diaAlvo: number): Date | null {
   if (!dataInicio) return null
@@ -292,12 +295,12 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, contratoExis
           </div>
           <div>
             <label className={labelClass}>Cliente *</label>
-            <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className={inputClass}>
-              <option value="">Selecione um cliente</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>{c.nome_razao_social}</option>
-              ))}
-            </select>
+            <SelectPill
+              value={clienteId}
+              onChange={setClienteId}
+              options={clientes.map((c) => ({ value: c.id, label: c.nome_razao_social }))}
+              placeholder="Selecione um cliente"
+            />
           </div>
           <div>
             <label className={labelClass}>Data de início *</label>
@@ -305,11 +308,11 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, contratoExis
           </div>
           <div>
             <label className={labelClass}>Dia da geração das vendas *</label>
-            <select value={diaGeracao} onChange={(e) => setDiaGeracao(parseInt(e.target.value, 10))} className={inputClass}>
-              {DIAS_MES.map((d) => (
-                <option key={d} value={d}>{ordinalDia(d)}</option>
-              ))}
-            </select>
+            <SelectPill
+              value={String(diaGeracao)}
+              onChange={(v) => setDiaGeracao(parseInt(v, 10))}
+              options={OPCOES_DIAS_MES}
+            />
           </div>
           <div>
             <label className={labelClass}>Data da primeira venda</label>
@@ -329,18 +332,26 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, contratoExis
                 onChange={(e) => setRecorrenciaIntervalo(parseInt(e.target.value, 10) || 1)}
                 className="w-20 px-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <select value={recorrenciaUnidade} onChange={(e) => setRecorrenciaUnidade(e.target.value as 'mes' | 'ano')} className={inputClass}>
-                <option value="mes">Mês/meses</option>
-                <option value="ano">Ano/anos</option>
-              </select>
+              <SelectPill
+                value={recorrenciaUnidade}
+                onChange={(v) => setRecorrenciaUnidade(v as 'mes' | 'ano')}
+                options={[
+                  { value: 'mes', label: 'Mês/meses' },
+                  { value: 'ano', label: 'Ano/anos' },
+                ]}
+              />
             </div>
           </div>
           <div>
             <label className={labelClass}>Término da recorrência *</label>
-            <select value={terminoTipo} onChange={(e) => setTerminoTipo(e.target.value as TerminoTipo)} className={inputClass}>
-              <option value="indeterminado">Indeterminado</option>
-              <option value="periodo">Em um período específico</option>
-            </select>
+            <SelectPill
+              value={terminoTipo}
+              onChange={(v) => setTerminoTipo(v as TerminoTipo)}
+              options={[
+                { value: 'indeterminado', label: 'Indeterminado' },
+                { value: 'periodo', label: 'Em um período específico' },
+              ]}
+            />
           </div>
           {terminoTipo === 'periodo' && (
             <>
@@ -382,12 +393,11 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, contratoExis
           </div>
           <div>
             <label className={labelClass}>Vendedor responsável</label>
-            <select value={vendedorId} onChange={(e) => setVendedorId(e.target.value)} className={inputClass}>
-              <option value="">Selecione</option>
-              {usuarios.map((u) => (
-                <option key={u.id} value={u.id}>{u.nome_completo}</option>
-              ))}
-            </select>
+            <SelectPill
+              value={vendedorId}
+              onChange={setVendedorId}
+              options={usuarios.map((u) => ({ value: u.id, label: u.nome_completo }))}
+            />
           </div>
         </div>
       </div>
@@ -397,12 +407,12 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, contratoExis
         <h3 className="text-base font-bold text-gray-900">Itens</h3>
         <div>
           <label className={labelClass}>Selecione ou crie um novo item *</label>
-          <select value={servicoId} onChange={(e) => handleSelecionarServico(e.target.value)} className={inputClass}>
-            <option value="">Selecione um serviço</option>
-            {servicos.map((s) => (
-              <option key={s.id} value={s.id}>{s.nome}</option>
-            ))}
-          </select>
+          <SelectPill
+            value={servicoId}
+            onChange={handleSelecionarServico}
+            options={servicos.map((s) => ({ value: s.id, label: s.nome }))}
+            placeholder="Selecione um serviço"
+          />
           <div className="flex gap-2 mt-2">
             <input
               type="text"
@@ -482,21 +492,19 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, contratoExis
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Forma de pagamento</label>
-            <select value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value)} className={inputClass}>
-              <option value="">Selecione</option>
-              {FORMAS_PAGAMENTO.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </select>
+            <SelectPill
+              value={formaPagamento}
+              onChange={setFormaPagamento}
+              options={FORMAS_PAGAMENTO.map((f) => ({ value: f, label: f }))}
+            />
           </div>
           <div>
             <label className={labelClass}>Conta de recebimento</label>
-            <select value={contaRecebimentoId} onChange={(e) => setContaRecebimentoId(e.target.value)} className={inputClass}>
-              <option value="">Selecione</option>
-              {contas.map((c) => (
-                <option key={c.id} value={c.id}>{c.nome}</option>
-              ))}
-            </select>
+            <SelectPill
+              value={contaRecebimentoId}
+              onChange={setContaRecebimentoId}
+              options={contas.map((c) => ({ value: c.id, label: c.nome }))}
+            />
             <div className="flex gap-2 mt-2">
               <input
                 type="text"
@@ -512,11 +520,11 @@ export default function NovoContratoAtivoForm({ clientes, usuarios, contratoExis
           </div>
           <div>
             <label className={labelClass}>Vencer sempre no *</label>
-            <select value={diaVencimento} onChange={(e) => setDiaVencimento(parseInt(e.target.value, 10))} className={inputClass}>
-              {DIAS_MES.map((d) => (
-                <option key={d} value={d}>{ordinalDia(d)}</option>
-              ))}
-            </select>
+            <SelectPill
+              value={String(diaVencimento)}
+              onChange={(v) => setDiaVencimento(parseInt(v, 10))}
+              options={OPCOES_DIAS_MES}
+            />
           </div>
           <div>
             <label className={labelClass}>Vencimento da primeira cobrança</label>

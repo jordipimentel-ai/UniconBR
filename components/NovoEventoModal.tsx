@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createEvento, updateEvento, RepetirEvento } from '@/lib/event-management'
+import SelectPill from '@/components/SelectPill'
 
 interface EventoParaEditar {
   id: string
@@ -144,32 +145,32 @@ export default function NovoEventoModal({ onClose, onEventoCreated, dataPadrao, 
               <label className="block text-sm font-bold text-slate-700 mb-2">
                 Tipo
               </label>
-              <select
+              <SelectPill
                 value={formData.tipo}
-                onChange={(e) => setFormData({ ...formData, tipo: e.target.value as any })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              >
-                <option value="evento">📅 Evento</option>
-                <option value="compromisso">🤝 Compromisso</option>
-                <option value="prazo">⏰ Prazo</option>
-              </select>
+                onChange={(v) => setFormData({ ...formData, tipo: v as any })}
+                options={[
+                  { value: 'evento', label: '📅 Evento' },
+                  { value: 'compromisso', label: '🤝 Compromisso' },
+                  { value: 'prazo', label: '⏰ Prazo' },
+                ]}
+              />
             </div>
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">
                 Repetir
               </label>
-              <select
+              <SelectPill
                 value={formData.repetir}
-                onChange={(e) => setFormData({ ...formData, repetir: e.target.value as RepetirEvento })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              >
-                <option value="nao">Não</option>
-                <option value="diario">Diário</option>
-                <option value="semanal">Semanal</option>
-                <option value="mensal">Mensal</option>
-                <option value="anual">Anual</option>
-              </select>
+                onChange={(v) => setFormData({ ...formData, repetir: v as RepetirEvento })}
+                options={[
+                  { value: 'nao', label: 'Não' },
+                  { value: 'diario', label: 'Diário' },
+                  { value: 'semanal', label: 'Semanal' },
+                  { value: 'mensal', label: 'Mensal' },
+                  { value: 'anual', label: 'Anual' },
+                ]}
+              />
             </div>
           </div>
 

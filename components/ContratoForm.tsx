@@ -16,6 +16,7 @@ function rotulo(campo: CampoSchema): string {
   return campo.icone ? `${campo.icone} ${campo.label}` : campo.label
 }
 import { getEscritorio, Escritorio } from '@/lib/escritorio'
+import SelectPill from '@/components/SelectPill'
 
 interface ClienteOpcao {
   id: string
@@ -127,12 +128,11 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
     }
     if (campo.tipo === 'select') {
       return (
-        <select value={valor ?? ''} onChange={(e) => onChange(e.target.value)} className={className}>
-          <option value="">Selecione</option>
-          {(campo.opcoes || []).map((op) => (
-            <option key={op} value={op}>{op}</option>
-          ))}
-        </select>
+        <SelectPill
+          value={valor ?? ''}
+          onChange={onChange}
+          options={(campo.opcoes || []).map((op) => ({ value: op, label: op }))}
+        />
       )
     }
     if (campo.tipo === 'data') {
@@ -238,19 +238,13 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
               )}
             </div>
             {grupo.key === 'contratante' && clientesDisponiveis.length > 0 && (
-              <select
-                defaultValue=""
-                onChange={(e) => {
-                  if (e.target.value) handleSelecionarCliente(grupo.key, e.target.value)
-                  e.target.value = ''
-                }}
-                className="w-full px-4 py-2 border border-blue-300 bg-blue-50 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-              >
-                <option value="">Selecionar cliente cadastrado (preenche nome e CNPJ/CPF)</option>
-                {clientesDisponiveis.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nome_razao_social}</option>
-                ))}
-              </select>
+              <SelectPill
+                className="w-full"
+                value=""
+                onChange={(v) => { if (v) handleSelecionarCliente(grupo.key, v) }}
+                options={clientesDisponiveis.map((c) => ({ value: c.id, label: c.nome_razao_social }))}
+                placeholder="Selecionar cliente cadastrado (preenche nome e CNPJ/CPF)"
+              />
             )}
             {lista.map((pessoa, idx) => (
               <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
@@ -308,20 +302,16 @@ export default function ContratoForm({ template, onGerar, clientesDisponiveis = 
               return (
                 <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
                   <div className="flex justify-between items-center gap-3">
-                    <select
+                    <SelectPill
+                      className="flex-1"
                       value={item.tipo}
-                      onChange={(e) => {
-                        const novoTipo = e.target.value
+                      onChange={(v) => {
                         const novos = [...itens]
-                        novos[idx] = { tipo: novoTipo, valores: {} }
+                        novos[idx] = { tipo: v, valores: {} }
                         setClausulas({ ...clausulas, [grupo.key]: novos })
                       }}
-                      className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium"
-                    >
-                      {grupo.tipos.map((t) => (
-                        <option key={t.valor} value={t.valor}>{t.label}</option>
-                      ))}
-                    </select>
+                      options={grupo.tipos.map((t) => ({ value: t.valor, label: t.label }))}
+                    />
                     <button
                       onClick={() => {
                         const novos = [...itens]

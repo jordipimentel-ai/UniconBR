@@ -5,6 +5,7 @@ import UploadZone from './UploadZone'
 import { extractPDFData, montarPeriodoFaturamento, DeclaracaoExtraida } from '@/lib/pdf-processor'
 import { nomeMesPorExtenso, gerarMesesDoAno, gerarMesesDoisAnos, gerarUltimos12Meses } from '@/lib/date-utils'
 import { getEscritorio, Escritorio } from '@/lib/escritorio'
+import SelectPill from './SelectPill'
 
 interface Cliente {
   id: string
@@ -183,46 +184,40 @@ export default function DeclaracaoFaturamentoForm({ clientes, onGerar }: Declara
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Cliente *</label>
-        <select
+        <SelectPill
           value={clienteSelecionado}
-          onChange={(e) => setClienteSelecionado(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-        >
-          <option value="">Selecione um cliente</option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>{c.nome_razao_social}</option>
-          ))}
-        </select>
+          onChange={setClienteSelecionado}
+          options={clientes.map((c) => ({ value: c.id, label: c.nome_razao_social }))}
+          placeholder="Selecione um cliente"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Período *</label>
-          <select
+          <SelectPill
             value={tipoPeriodo}
-            onChange={(e) => setTipoPeriodo(e.target.value as TipoPeriodo)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          >
-            <option value="ano">Um ano (Jan-Dez)</option>
-            <option value="dois_anos">Dois anos (24 meses)</option>
-            <option value="ultimos_12">Últimos 12 meses</option>
-          </select>
+            onChange={(v) => setTipoPeriodo(v as TipoPeriodo)}
+            options={[
+              { value: 'ano', label: 'Um ano (Jan-Dez)' },
+              { value: 'dois_anos', label: 'Dois anos (24 meses)' },
+              { value: 'ultimos_12', label: 'Últimos 12 meses' },
+            ]}
+          />
         </div>
         {tipoPeriodo !== 'ultimos_12' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {tipoPeriodo === 'dois_anos' ? 'Ano Inicial *' : 'Ano *'}
             </label>
-            <select
-              value={anoInicial}
-              onChange={(e) => setAnoInicial(parseInt(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            >
-              {Array.from({ length: 6 }, (_, i) => {
+            <SelectPill
+              value={String(anoInicial)}
+              onChange={(v) => setAnoInicial(parseInt(v, 10))}
+              options={Array.from({ length: 6 }, (_, i) => {
                 const year = new Date().getFullYear() - i
-                return <option key={year} value={year}>{year}</option>
+                return { value: String(year), label: String(year) }
               })}
-            </select>
+            />
           </div>
         )}
         {tipoPeriodo === 'ultimos_12' && (

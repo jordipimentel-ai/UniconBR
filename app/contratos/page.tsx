@@ -8,6 +8,7 @@ import ContratoForm from '@/components/ContratoForm'
 import ContratoPreview from '@/components/ContratoPreview'
 import { CATEGORIAS, ContratoTemplate, DadosContrato } from '@/lib/contratos'
 import { exportarElementoParaPDF } from '@/lib/pdf-export'
+import SelectPill from '@/components/SelectPill'
 import { getEscritorio } from '@/lib/escritorio'
 
 interface ClienteOpcao {
@@ -132,19 +133,15 @@ export default function ContratosPage() {
             {!dadosGerados && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Contrato *</label>
-                <select
+                <SelectPill
                   value={templateSelecionado?.id || ''}
-                  onChange={(e) => {
-                    const template = categoriaAtual?.templates.find((t) => t.id === e.target.value)
+                  onChange={(v) => {
+                    const template = categoriaAtual?.templates.find((t) => t.id === v)
                     if (template) handleSelecionarTemplate(template)
                   }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Selecione o tipo de contrato</option>
-                  {categoriaAtual?.templates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.nome}</option>
-                  ))}
-                </select>
+                  options={(categoriaAtual?.templates || []).map((t) => ({ value: t.id, label: t.nome }))}
+                  placeholder="Selecione o tipo de contrato"
+                />
               </div>
             )}
 

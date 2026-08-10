@@ -11,6 +11,7 @@ import DeclaracaoFaturamentoPreview from '@/components/DeclaracaoFaturamentoPrev
 import { extractPDFData, consolidarDados, FaturamentoMes } from '@/lib/pdf-processor'
 import { exportarElementoParaPDF } from '@/lib/pdf-export'
 import { mesAnoParaData, upsertRegistroFinanceiroMes } from '@/lib/registros-financeiros'
+import SelectPill from '@/components/SelectPill'
 
 interface Cliente {
   id: string
@@ -231,62 +232,51 @@ export default function RelatoriosPage() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Cliente *</label>
-                <select
+                <SelectPill
                   value={clienteSelecionado}
-                  onChange={(e) => setClienteSelecionado(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Selecione um cliente</option>
-                  {clientes.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nome_razao_social}</option>
-                  ))}
-                </select>
+                  onChange={setClienteSelecionado}
+                  options={clientes.map((c) => ({ value: c.id, label: c.nome_razao_social }))}
+                  placeholder="Selecione um cliente"
+                />
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Período *</label>
-                  <select
+                  <SelectPill
                     value={periodo}
-                    onChange={(e) => setPeriodo(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    <option value="mes">Mensal</option>
-                    <option value="ano">Anual</option>
-                  </select>
+                    onChange={setPeriodo}
+                    options={[
+                      { value: 'mes', label: 'Mensal' },
+                      { value: 'ano', label: 'Anual' },
+                    ]}
+                  />
                 </div>
 
                 {periodo === 'mes' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Mês *</label>
-                    <select
-                      value={mes}
-                      onChange={(e) => setMes(parseInt(e.target.value))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    >
-                      {Array.from({ length: 12 }, (_, i) => (
-                        <option key={i + 1} value={i + 1}>
-                          {new Date(2000, i).toLocaleString('pt-BR', { month: 'long' })}
-                        </option>
-                      ))}
-                    </select>
+                    <SelectPill
+                      value={String(mes)}
+                      onChange={(v) => setMes(parseInt(v, 10))}
+                      options={Array.from({ length: 12 }, (_, i) => ({
+                        value: String(i + 1),
+                        label: new Date(2000, i).toLocaleString('pt-BR', { month: 'long' }),
+                      }))}
+                    />
                   </div>
                 )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Ano *</label>
-                  <select
-                    value={ano}
-                    onChange={(e) => setAno(parseInt(e.target.value))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    {Array.from({ length: 5 }, (_, i) => {
+                  <SelectPill
+                    value={String(ano)}
+                    onChange={(v) => setAno(parseInt(v, 10))}
+                    options={Array.from({ length: 5 }, (_, i) => {
                       const year = new Date().getFullYear() - i
-                      return (
-                        <option key={year} value={year}>{year}</option>
-                      )
+                      return { value: String(year), label: String(year) }
                     })}
-                  </select>
+                  />
                 </div>
               </div>
 

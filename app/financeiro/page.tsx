@@ -11,6 +11,7 @@ import ServicosCobrancaPanel from '@/components/ServicosCobrancaPanel'
 import ContasRecebimentoPanel from '@/components/ContasRecebimentoPanel'
 import DespesasPanel from '@/components/DespesasPanel'
 import DashboardFinanceiro from '@/components/DashboardFinanceiro'
+import SelectPill from '@/components/SelectPill'
 import {
   ContratoAtivo,
   Cobranca,
@@ -267,27 +268,27 @@ export default function FinanceiroPage() {
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-900">Cobranças</h2>
                 <div className="flex gap-2">
-                  <select
+                  <SelectPill
+                    className="w-48"
                     value={filtroCompetencia}
-                    onChange={(e) => setFiltroCompetencia(e.target.value)}
-                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-                  >
-                    <option value="todos">Todos os meses</option>
-                    {competenciasDisponiveis.map((comp) => (
-                      <option key={comp} value={comp}>Referente a {formatCompetencia(comp)}</option>
-                    ))}
-                  </select>
-                  <select
+                    onChange={setFiltroCompetencia}
+                    options={[
+                      { value: 'todos', label: 'Todos os meses' },
+                      ...competenciasDisponiveis.map((comp) => ({ value: comp, label: `Referente a ${formatCompetencia(comp)}` })),
+                    ]}
+                  />
+                  <SelectPill
+                    className="w-40"
                     value={filtroStatus}
-                    onChange={(e) => setFiltroStatus(e.target.value as any)}
-                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-                  >
-                    <option value="todos">Todos os status</option>
-                    <option value="pendente">Em dia</option>
-                    <option value="atrasado">Atrasado</option>
-                    <option value="pago">Pago</option>
-                    <option value="cancelado">Cancelado</option>
-                  </select>
+                    onChange={(v) => setFiltroStatus(v as any)}
+                    options={[
+                      { value: 'todos', label: 'Todos os status' },
+                      { value: 'pendente', label: 'Em dia' },
+                      { value: 'atrasado', label: 'Atrasado' },
+                      { value: 'pago', label: 'Pago' },
+                      { value: 'cancelado', label: 'Cancelado' },
+                    ]}
+                  />
                 </div>
               </div>
 

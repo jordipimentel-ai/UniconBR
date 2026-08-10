@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { generateRandomPassword } from '@/lib/user-management'
+import SelectPill from '@/components/SelectPill'
 
 interface Permission {
   id: string
@@ -231,17 +232,14 @@ export default function NovoUsuarioModal({ onClose, onUserCreated }: NovoUsuario
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Função
             </label>
-            <select
-              name="role"
+            <SelectPill
               value={formData.role}
-              onChange={(e) =>
-                handleRoleChange(e.target.value as 'admin' | 'colaborador')
-              }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            >
-              <option value="colaborador">Colaborador</option>
-              <option value="admin">Admin</option>
-            </select>
+              onChange={(v) => handleRoleChange(v as 'admin' | 'colaborador')}
+              options={[
+                { value: 'colaborador', label: 'Colaborador' },
+                { value: 'admin', label: 'Admin' },
+              ]}
+            />
           </div>
 
           {/* Permissões */}

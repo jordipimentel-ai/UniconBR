@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
+import SelectPill from '@/components/SelectPill'
 
 interface Tarefa {
   id: string
@@ -230,21 +231,12 @@ export default function EditarTarefaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Processo *
               </label>
-              <select
+              <SelectPill
                 value={formData.processo_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, processo_id: e.target.value })
-                }
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              >
-                <option value="">Selecione um processo</option>
-                {tiposProcesso.map((tipo) => (
-                  <option key={tipo.id} value={tipo.id}>
-                    {tipo.nome}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setFormData({ ...formData, processo_id: v })}
+                options={tiposProcesso.map((tipo) => ({ value: tipo.id, label: tipo.nome }))}
+                placeholder="Selecione um processo"
+              />
             </div>
 
             {/* Descrição */}
@@ -285,20 +277,12 @@ export default function EditarTarefaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Responsável (Opcional)
               </label>
-              <select
+              <SelectPill
                 value={formData.user_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, user_id: e.target.value })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              >
-                <option value="">Selecione um responsável</option>
-                {usuarios.map((usuario) => (
-                  <option key={usuario.id} value={usuario.id}>
-                    {usuario.nome_completo}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setFormData({ ...formData, user_id: v })}
+                options={usuarios.map((usuario) => ({ value: usuario.id, label: usuario.nome_completo }))}
+                placeholder="Selecione um responsável"
+              />
             </div>
 
             {/* Prioridade */}
@@ -306,20 +290,15 @@ export default function EditarTarefaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Prioridade
               </label>
-              <select
+              <SelectPill
                 value={formData.prioridade}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    prioridade: e.target.value as 'baixa' | 'media' | 'alta',
-                  })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              >
-                <option value="baixa">🟢 Baixa</option>
-                <option value="media">🟡 Média</option>
-                <option value="alta">🔴 Alta</option>
-              </select>
+                onChange={(v) => setFormData({ ...formData, prioridade: v as 'baixa' | 'media' | 'alta' })}
+                options={[
+                  { value: 'baixa', label: '🟢 Baixa' },
+                  { value: 'media', label: '🟡 Média' },
+                  { value: 'alta', label: '🔴 Alta' },
+                ]}
+              />
             </div>
 
             {/* Status */}
@@ -327,20 +306,15 @@ export default function EditarTarefaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
-              <select
+              <SelectPill
                 value={formData.status}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    status: e.target.value as 'pendente' | 'em_andamento' | 'concluida',
-                  })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              >
-                <option value="pendente">⚪ Pendente</option>
-                <option value="em_andamento">🔵 Em andamento</option>
-                <option value="concluida">✅ Concluída</option>
-              </select>
+                onChange={(v) => setFormData({ ...formData, status: v as 'pendente' | 'em_andamento' | 'concluida' })}
+                options={[
+                  { value: 'pendente', label: '⚪ Pendente' },
+                  { value: 'em_andamento', label: '🔵 Em andamento' },
+                  { value: 'concluida', label: '✅ Concluída' },
+                ]}
+              />
             </div>
 
             {/* Botões */}

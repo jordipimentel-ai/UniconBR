@@ -13,6 +13,7 @@ import {
   reverterDespesaParaPendente,
   excluirDespesa,
 } from '@/lib/despesas'
+import SelectPill from '@/components/SelectPill'
 
 const STATUS_CONFIG: Record<StatusDespesa, { label: string; cor: string }> = {
   pendente: { label: '⚪ Pendente', cor: 'bg-gray-100 text-gray-800' },
@@ -101,16 +102,17 @@ export default function DespesasPanel() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <select
+        <SelectPill
+          className="w-40"
           value={filtroStatus}
-          onChange={(e) => setFiltroStatus(e.target.value as any)}
-          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-        >
-          <option value="todos">Todos os status</option>
-          <option value="pendente">Pendente</option>
-          <option value="atrasado">Atrasado</option>
-          <option value="pago">Pago</option>
-        </select>
+          onChange={(v) => setFiltroStatus(v as any)}
+          options={[
+            { value: 'todos', label: 'Todos os status' },
+            { value: 'pendente', label: 'Pendente' },
+            { value: 'atrasado', label: 'Atrasado' },
+            { value: 'pago', label: 'Pago' },
+          ]}
+        />
         {!mostrarForm && (
           <button onClick={() => setMostrarForm(true)} className="text-sm px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">
             + Nova Despesa
