@@ -240,6 +240,14 @@ export async function excluirServico(id: string) {
   return { success: !error, error: error?.message || null }
 }
 
+export async function atualizarServico(id: string, nome: string, valorPadrao: number | null) {
+  const { error } = await supabase
+    .from('servicos_cobranca')
+    .update({ nome, valor_padrao: valorPadrao })
+    .eq('id', id)
+  return { success: !error, error: error?.message || null }
+}
+
 // --- Contas de Recebimento (submenu de Cobranças) ---
 
 export async function listarContasRecebimento() {
