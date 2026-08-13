@@ -66,6 +66,7 @@ export default function FinanceiroPage() {
   const [contratoEditando, setContratoEditando] = useState<ContratoAtivo | null>(null)
   const [filtroStatus, setFiltroStatus] = useState<'todos' | StatusCobranca>('todos')
   const [filtroCompetencia, setFiltroCompetencia] = useState<'todos' | string>('todos')
+  const [filtroContratoAtivo, setFiltroContratoAtivo] = useState(true)
 
   async function carregarTudo() {
     const [{ data: contratosData }, { data: cobrancasData }, { data: despesasData }] = await Promise.all([
@@ -130,6 +131,8 @@ export default function FinanceiroPage() {
     await carregarTudo()
   }
 
+  const contratosFiltrados = contratos.filter((c) => c.ativo === filtroContratoAtivo)
+
   const competenciasDisponiveis = Array.from(new Set(cobrancas.map((c) => c.competencia))).sort((a, b) => b.localeCompare(a))
 
   const cobrancasFiltradas = cobrancas.filter((c) =>
@@ -179,7 +182,7 @@ export default function FinanceiroPage() {
           {aba === 'Contratos Ativos' && (
             <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Contratos Ativos de Cobrança</h2>
+                <h2 className="text-lg font-bold text-gray-900">Contratos</h2>
                 {!mostrarForm && (
                   <button
                     onClick={() => { setContratoEditando(null); setMostrarForm(true) }}
@@ -188,6 +191,25 @@ export default function FinanceiroPage() {
                     + Novo Contrato
                   </button>
                 )}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFiltroContratoAtivo(true)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${
+                    filtroContratoAtivo ? 'bg-blue-100 text-blue-700 border-blue-200' : 'text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Ativos
+                </button>
+                <button
+                  onClick={() => setFiltroContratoAtivo(false)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${
+                    !filtroContratoAtivo ? 'bg-blue-100 text-blue-700 border-blue-200' : 'text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Inativos
+                </button>
               </div>
 
               {mostrarForm && (
@@ -207,8 +229,10 @@ export default function FinanceiroPage() {
                 </div>
               )}
 
-              {contratos.length === 0 ? (
-                <p className="text-sm text-gray-500">Nenhum contrato de cobrança cadastrado ainda.</p>
+              {contratosFiltrados.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  {filtroContratoAtivo ? 'Nenhum contrato ativo.' : 'Nenhum contrato inativo.'}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -219,20 +243,18 @@ export default function FinanceiroPage() {
                         <th className="py-2 pr-4">Serviço</th>
                         <th className="py-2 pr-4">Valor Mensal</th>
                         <th className="py-2 pr-4">Vencimento</th>
-                        <th className="py-2 pr-4">Vendedor</th>
                         <th className="py-2 pr-4">Status</th>
                         <th className="py-2 pr-4">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {contratos.map((c) => (
+                      {contratosFiltrados.map((c) => (
                         <tr key={c.id} className="border-b border-gray-100">
                           <td className="py-2 pr-4 text-gray-500">{c.numero_contrato || '—'}</td>
                           <td className="py-2 pr-4 font-medium text-gray-900">{c.clientes?.nome_razao_social || '—'}</td>
                           <td className="py-2 pr-4">{c.servicos_cobranca?.nome || c.descricao}</td>
                           <td className="py-2 pr-4">{formatMoeda(c.valor_mensal)}</td>
                           <td className="py-2 pr-4">Dia {c.dia_vencimento}</td>
-                          <td className="py-2 pr-4">{c.users?.nome_completo || '—'}</td>
                           <td className="py-2 pr-4">
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${c.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
                               {c.ativo ? 'Ativo' : 'Inativo'}
