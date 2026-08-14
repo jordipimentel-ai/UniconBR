@@ -5,6 +5,7 @@ export type StatusLancamento = 'pendente' | 'pago' | 'atrasado' | 'cancelado'
 export interface LancamentoReceita {
   id: string
   cliente_id: string | null
+  cliente_nome: string | null
   descricao: string
   categoria: string | null
   valor: number
@@ -28,6 +29,7 @@ export async function listarLancamentos() {
 
 export async function criarLancamento(dados: {
   cliente_id?: string | null
+  cliente_nome?: string | null
   descricao: string
   categoria?: string
   valor: number

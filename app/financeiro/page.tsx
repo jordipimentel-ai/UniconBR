@@ -52,7 +52,7 @@ function formatCompetencia(data: string): string {
   return `${nomes[parseInt(mes, 10) - 1]}/${ano}`
 }
 
-const ABAS = ['Dashboard', 'Contratos Ativos', 'Cobranças', 'Lançamentos', 'Despesas', 'Serviços', 'Contas'] as const
+const ABAS = ['Dashboard', 'Contratos Ativos', 'Cobranças', 'Lançamentos', 'Serviços', 'Contas'] as const
 type Aba = typeof ABAS[number]
 
 export default function FinanceiroPage() {
@@ -70,6 +70,7 @@ export default function FinanceiroPage() {
   const [filtroStatus, setFiltroStatus] = useState<'todos' | StatusCobranca>('todos')
   const [filtroCompetencia, setFiltroCompetencia] = useState<'todos' | string>('todos')
   const [filtroContratoAtivo, setFiltroContratoAtivo] = useState(true)
+  const [subAbaLancamentos, setSubAbaLancamentos] = useState<'Receitas' | 'Despesas'>('Receitas')
 
   async function carregarTudo() {
     const [{ data: contratosData }, { data: cobrancasData }, { data: despesasData }, { data: lancamentosData }] = await Promise.all([
@@ -373,16 +374,33 @@ export default function FinanceiroPage() {
             <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">Lançamentos</h2>
-                <p className="text-xs text-gray-500 mt-1">Receitas de serviços avulsos, fora dos contratos recorrentes.</p>
+                <p className="text-xs text-gray-500 mt-1">Movimentações fora dos contratos recorrentes: receitas de serviços avulsos e contas a pagar.</p>
               </div>
-              <LancamentosPanel clientes={clientes} />
-            </section>
-          )}
 
-          {aba === 'Despesas' && (
-            <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
-              <h2 className="text-lg font-bold text-gray-900">Contas a Pagar</h2>
-              <DespesasPanel />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSubAbaLancamentos('Receitas')}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${
+                    subAbaLancamentos === 'Receitas' ? 'bg-green-100 text-green-700 border-green-200' : 'text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  💰 Receitas
+                </button>
+                <button
+                  onClick={() => setSubAbaLancamentos('Despesas')}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${
+                    subAbaLancamentos === 'Despesas' ? 'bg-red-100 text-red-700 border-red-200' : 'text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  📤 Despesas
+                </button>
+              </div>
+
+              {subAbaLancamentos === 'Receitas' ? (
+                <LancamentosPanel clientes={clientes} />
+              ) : (
+                <DespesasPanel />
+              )}
             </section>
           )}
 

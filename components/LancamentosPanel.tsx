@@ -13,6 +13,7 @@ import {
   reverterLancamentoParaPendente,
   excluirLancamento,
 } from '@/lib/lancamentos-receita'
+import { ServicoCobranca, listarServicos } from '@/lib/cobrancas'
 import SelectPill from '@/components/SelectPill'
 
 interface Cliente {
@@ -50,12 +51,13 @@ function inputMoeda(valor: number | null, onChange: (v: number | null) => void) 
 
 export default function LancamentosPanel({ clientes }: Props) {
   const [lancamentos, setLancamentos] = useState<LancamentoReceita[]>([])
+  const [servicos, setServicos] = useState<ServicoCobranca[]>([])
   const [loading, setLoading] = useState(true)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [filtroStatus, setFiltroStatus] = useState<'todos' | StatusLancamento>('todos')
 
-  const [clienteId, setClienteId] = useState('')
+  const [clienteTexto, setClienteTexto] = useState('')
   const [descricao, setDescricao] = useState('')
   const [categoria, setCategoria] = useState('')
   const [valor, setValor] = useState<number | null>(null)
@@ -64,8 +66,9 @@ export default function LancamentosPanel({ clientes }: Props) {
   async function carregar() {
     setLoading(true)
     await atualizarStatusLancamentosAtrasados()
-    const { data } = await listarLancamentos()
-    setLancamentos(data)
+    const [{ data: lancData }, { data: servData }] = await Promise.all([listarLancamentos(), listarServicos()])
+    setLancamentos(lancData)
+    setServicos(servData)
     setLoading(false)
   }
 
@@ -79,8 +82,13 @@ export default function LancamentosPanel({ clientes }: Props) {
       setErro('Informe a descrição e o valor')
       return
     }
+
+    const nomeDigitado = clienteTexto.trim()
+    const clienteExistente = clientes.find((c) => c.nome_razao_social.toLowerCase() === nomeDigitado.toLowerCase())
+
     const { success, error } = await criarLancamento({
-      cliente_id: clienteId || null,
+      cliente_id: clienteExistente?.id || null,
+      cliente_nome: clienteExistente ? null : nomeDigitado || null,
       descricao: descricao.trim(),
       categoria: categoria || undefined,
       valor,
@@ -90,7 +98,7 @@ export default function LancamentosPanel({ clientes }: Props) {
       setErro(error || 'Erro ao criar lançamento')
       return
     }
-    setClienteId('')
+    setClienteTexto('')
     setDescricao('')
     setCategoria('')
     setValor(null)
@@ -143,12 +151,19 @@ export default function LancamentosPanel({ clientes }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className="block text-xs font-medium text-gray-600 mb-1">Cliente (opcional)</label>
-              <SelectPill
-                value={clienteId}
-                onChange={setClienteId}
-                options={clientes.map((c) => ({ value: c.id, label: c.nome_razao_social }))}
-                placeholder="Sem cliente vinculado"
+              <input
+                type="text"
+                list="lancamentos-clientes"
+                value={clienteTexto}
+                onChange={(e) => setClienteTexto(e.target.value)}
+                placeholder="Selecione um cliente cadastrado ou digite um nome novo"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <datalist id="lancamentos-clientes">
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.nome_razao_social} />
+                ))}
+              </datalist>
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-gray-600 mb-1">Descrição *</label>
@@ -162,12 +177,11 @@ export default function LancamentosPanel({ clientes }: Props) {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Categoria</label>
-              <input
-                type="text"
+              <SelectPill
                 value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-                placeholder="Ex: Serviço avulso"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={setCategoria}
+                options={servicos.map((s) => ({ value: s.nome, label: s.nome }))}
+                placeholder="Selecione um serviço"
               />
             </div>
             <div>
@@ -208,7 +222,7 @@ export default function LancamentosPanel({ clientes }: Props) {
               {lancamentosFiltrados.map((l) => (
                 <tr key={l.id} className="border-b border-gray-100">
                   <td className="py-2 pr-4 font-medium text-gray-900">{l.descricao}</td>
-                  <td className="py-2 pr-4">{l.clientes?.nome_razao_social || '—'}</td>
+                  <td className="py-2 pr-4">{l.clientes?.nome_razao_social || l.cliente_nome || '—'}</td>
                   <td className="py-2 pr-4">{l.categoria || '—'}</td>
                   <td className="py-2 pr-4">{formatMoeda(l.valor)}</td>
                   <td className="py-2 pr-4">{formatDataLocal(l.vencimento)}</td>
