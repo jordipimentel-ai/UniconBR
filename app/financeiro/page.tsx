@@ -10,6 +10,7 @@ import NovoContratoAtivoForm from '@/components/NovoContratoAtivoForm'
 import ServicosCobrancaPanel from '@/components/ServicosCobrancaPanel'
 import ContasRecebimentoPanel from '@/components/ContasRecebimentoPanel'
 import DespesasPanel from '@/components/DespesasPanel'
+import LancamentosPanel from '@/components/LancamentosPanel'
 import DashboardFinanceiro from '@/components/DashboardFinanceiro'
 import SelectPill from '@/components/SelectPill'
 import {
@@ -26,6 +27,7 @@ import {
   reverterCobrancaParaPendente,
 } from '@/lib/cobrancas'
 import { Despesa, listarDespesas, atualizarStatusDespesasAtrasadas } from '@/lib/despesas'
+import { LancamentoReceita, listarLancamentos, atualizarStatusLancamentosAtrasados } from '@/lib/lancamentos-receita'
 
 interface Cliente {
   id: string
@@ -50,7 +52,7 @@ function formatCompetencia(data: string): string {
   return `${nomes[parseInt(mes, 10) - 1]}/${ano}`
 }
 
-const ABAS = ['Dashboard', 'Contratos Ativos', 'Cobranças', 'Despesas', 'Serviços', 'Contas'] as const
+const ABAS = ['Dashboard', 'Contratos Ativos', 'Cobranças', 'Lançamentos', 'Despesas', 'Serviços', 'Contas'] as const
 type Aba = typeof ABAS[number]
 
 export default function FinanceiroPage() {
@@ -62,6 +64,7 @@ export default function FinanceiroPage() {
   const [contratos, setContratos] = useState<ContratoAtivo[]>([])
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([])
   const [despesas, setDespesas] = useState<Despesa[]>([])
+  const [lancamentos, setLancamentos] = useState<LancamentoReceita[]>([])
   const [mostrarForm, setMostrarForm] = useState(false)
   const [contratoEditando, setContratoEditando] = useState<ContratoAtivo | null>(null)
   const [filtroStatus, setFiltroStatus] = useState<'todos' | StatusCobranca>('todos')
@@ -69,14 +72,16 @@ export default function FinanceiroPage() {
   const [filtroContratoAtivo, setFiltroContratoAtivo] = useState(true)
 
   async function carregarTudo() {
-    const [{ data: contratosData }, { data: cobrancasData }, { data: despesasData }] = await Promise.all([
+    const [{ data: contratosData }, { data: cobrancasData }, { data: despesasData }, { data: lancamentosData }] = await Promise.all([
       listarContratosAtivos(),
       listarCobrancas(),
       listarDespesas(),
+      listarLancamentos(),
     ])
     setContratos(contratosData)
     setCobrancas(cobrancasData)
     setDespesas(despesasData)
+    setLancamentos(lancamentosData)
   }
 
   useEffect(() => {
@@ -97,6 +102,7 @@ export default function FinanceiroPage() {
       await gerarCobrancasDoMes()
       await atualizarStatusAtrasados()
       await atualizarStatusDespesasAtrasadas()
+      await atualizarStatusLancamentosAtrasados()
       await carregarTudo()
 
       setLoading(false)
@@ -176,7 +182,7 @@ export default function FinanceiroPage() {
           </div>
 
           {aba === 'Dashboard' && (
-            <DashboardFinanceiro contratos={contratos} cobrancas={cobrancas} despesas={despesas} />
+            <DashboardFinanceiro contratos={contratos} cobrancas={cobrancas} despesas={despesas} lancamentos={lancamentos} />
           )}
 
           {aba === 'Contratos Ativos' && (
@@ -360,6 +366,16 @@ export default function FinanceiroPage() {
                   </table>
                 </div>
               )}
+            </section>
+          )}
+
+          {aba === 'Lançamentos' && (
+            <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Lançamentos</h2>
+                <p className="text-xs text-gray-500 mt-1">Receitas de serviços avulsos, fora dos contratos recorrentes.</p>
+              </div>
+              <LancamentosPanel clientes={clientes} />
             </section>
           )}
 

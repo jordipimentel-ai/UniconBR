@@ -3,11 +3,13 @@
 import { formatMoeda } from '@/lib/contratos'
 import { ContratoAtivo, Cobranca } from '@/lib/cobrancas'
 import { Despesa } from '@/lib/despesas'
+import { LancamentoReceita } from '@/lib/lancamentos-receita'
 
 interface Props {
   contratos: ContratoAtivo[]
   cobrancas: Cobranca[]
   despesas: Despesa[]
+  lancamentos: LancamentoReceita[]
 }
 
 function mesAtualStr(): string {
@@ -24,14 +26,19 @@ function Card({ titulo, valor, cor }: { titulo: string; valor: string; cor: stri
   )
 }
 
-export default function DashboardFinanceiro({ contratos, cobrancas, despesas }: Props) {
+export default function DashboardFinanceiro({ contratos, cobrancas, despesas, lancamentos }: Props) {
   const mesAtual = mesAtualStr()
 
   const cobrancasMes = cobrancas.filter((c) => c.competencia.startsWith(mesAtual))
   const despesasMes = despesas.filter((d) => d.vencimento.startsWith(mesAtual))
+  const lancamentosMes = lancamentos.filter((l) => l.vencimento.startsWith(mesAtual))
 
-  const aReceber = cobrancasMes.filter((c) => c.status === 'pendente' || c.status === 'atrasado').reduce((s, c) => s + c.valor, 0)
-  const recebido = cobrancasMes.filter((c) => c.status === 'pago').reduce((s, c) => s + c.valor, 0)
+  const aReceber =
+    cobrancasMes.filter((c) => c.status === 'pendente' || c.status === 'atrasado').reduce((s, c) => s + c.valor, 0) +
+    lancamentosMes.filter((l) => l.status === 'pendente' || l.status === 'atrasado').reduce((s, l) => s + l.valor, 0)
+  const recebido =
+    cobrancasMes.filter((c) => c.status === 'pago').reduce((s, c) => s + c.valor, 0) +
+    lancamentosMes.filter((l) => l.status === 'pago').reduce((s, l) => s + l.valor, 0)
   const aPagar = despesasMes.filter((d) => d.status === 'pendente' || d.status === 'atrasado').reduce((s, d) => s + d.valor, 0)
   const pago = despesasMes.filter((d) => d.status === 'pago').reduce((s, d) => s + d.valor, 0)
   const contratosAtivos = contratos.filter((c) => c.ativo).length
@@ -43,7 +50,10 @@ export default function DashboardFinanceiro({ contratos, cobrancas, despesas }: 
   const entradasPorSemana = semanas.map((semana) =>
     cobrancas
       .filter((c) => c.status === 'pago' && (c as any).data_pagamento?.startsWith(mesAtual) && Math.ceil(parseInt((c as any).data_pagamento.slice(8, 10), 10) / 7) === semana)
-      .reduce((s, c) => s + c.valor, 0)
+      .reduce((s, c) => s + c.valor, 0) +
+    lancamentos
+      .filter((l) => l.status === 'pago' && l.data_pagamento?.startsWith(mesAtual) && Math.ceil(parseInt(l.data_pagamento.slice(8, 10), 10) / 7) === semana)
+      .reduce((s, l) => s + l.valor, 0)
   )
   const saidasPorSemana = semanas.map((semana) =>
     despesas
