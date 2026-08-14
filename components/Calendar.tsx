@@ -238,13 +238,13 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
     return (
       <div
         key={evento.id}
-        className="flex items-start gap-3 p-3 rounded-lg border-l-4 bg-slate-50 hover:bg-slate-100 transition"
+        className="flex items-start gap-4 p-4 rounded-lg border-l-4 bg-slate-50 hover:bg-slate-100 transition"
         style={{ borderLeftColor: getCorEvento(evento.cor) }}
       >
-        <div className="text-xl">{getTipoIcon(evento.tipo)}</div>
+        <div className="text-2xl">{getTipoIcon(evento.tipo)}</div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-slate-900 text-sm">{evento.titulo}</div>
-          {evento.hora && <div className="text-xs text-slate-600 mt-0.5">🕐 {evento.hora}</div>}
+          <div className="font-semibold text-slate-900 text-base">{evento.titulo}</div>
+          {evento.hora && <div className="text-sm text-slate-600 mt-1">🕐 {evento.hora}</div>}
           {evento.descricao && !evento.status && (
             <div className="text-xs text-slate-600 mt-1">{evento.descricao}</div>
           )}
@@ -301,29 +301,29 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
                 ▤ Semana
               </button>
             </div>
-            <h2 className="text-lg font-bold text-slate-900">{tituloTopo}</h2>
+            <h2 className="text-2xl font-bold text-slate-900">{tituloTopo}</h2>
           </div>
 
           <div className="flex gap-2">
             {showNewEventButton && (
               <button
                 onClick={() => setShowModal(true)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-semibold text-sm shadow-sm"
+                className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-semibold text-sm shadow-sm"
               >
                 + Novo Evento
               </button>
             )}
-            <button onClick={() => navegar(-1)} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-lg transition font-medium text-sm">←</button>
-            <button onClick={irParaHoje} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium text-sm">Hoje</button>
-            <button onClick={() => navegar(1)} className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-lg transition font-medium text-sm">→</button>
+            <button onClick={() => navegar(-1)} className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-lg transition font-medium">←</button>
+            <button onClick={irParaHoje} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium text-sm">Hoje</button>
+            <button onClick={() => navegar(1)} className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-lg transition font-medium">→</button>
           </div>
         </div>
 
         {/* Legenda */}
-        <div className="flex flex-wrap gap-5 text-xs text-slate-600 px-6 py-3 border-b border-slate-100">
+        <div className="flex flex-wrap gap-6 text-sm text-slate-600 px-8 py-4 border-b border-slate-100">
           {(['evento', 'compromisso', 'prazo', 'tarefa'] as const).map((t) => (
-            <div key={t} className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: CORES_TIPO[t] }} />
+            <div key={t} className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: CORES_TIPO[t] }} />
               <span className="capitalize">{t}</span>
             </div>
           ))}
@@ -332,15 +332,15 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
         {loading ? (
           <div className="py-16 text-center text-slate-500">Carregando...</div>
         ) : modo === 'mes' ? (
-          <div className="grid grid-cols-1 md:grid-cols-[300px_1fr]">
+          <div className="grid grid-cols-1 md:grid-cols-[380px_1fr]">
             {/* Mini-calendário */}
-            <div className="p-6 border-b md:border-b-0 md:border-r border-slate-200">
-              <div className="grid grid-cols-7 gap-1 text-center mb-1">
+            <div className="p-8 border-b md:border-b-0 md:border-r border-slate-200">
+              <div className="grid grid-cols-7 gap-1.5 text-center mb-2">
                 {DIAS_SEMANA_CURTO.map((d, i) => (
-                  <div key={i} className="text-[10px] font-bold text-slate-400 pb-1">{d}</div>
+                  <div key={i} className="text-xs font-bold text-slate-400 pb-1">{d}</div>
                 ))}
               </div>
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-7 gap-1.5">
                 {celulasMes.map((d, idx) => {
                   if (!d) return <div key={idx} />
                   const selecionado = mesmoDia(d, diaSelecionado)
@@ -350,7 +350,7 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
                     <button
                       key={idx}
                       onClick={() => setDiaSelecionado(d)}
-                      className={`relative text-xs rounded-lg py-1.5 transition ${
+                      className={`relative text-sm rounded-lg py-3 transition ${
                         selecionado
                           ? 'bg-blue-600 text-white font-bold'
                           : hoje
@@ -360,11 +360,11 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
                     >
                       {d.getDate()}
                       {evts.length > 0 && (
-                        <div className="flex justify-center gap-0.5 mt-0.5">
+                        <div className="flex justify-center gap-1 mt-1">
                           {evts.slice(0, 3).map((e, i) => (
                             <span
                               key={i}
-                              className="w-1 h-1 rounded-full inline-block"
+                              className="w-1.5 h-1.5 rounded-full inline-block"
                               style={{ backgroundColor: selecionado ? 'white' : getCorEvento(e.cor) }}
                             />
                           ))}
@@ -377,18 +377,18 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
             </div>
 
             {/* Painel do dia selecionado */}
-            <div className="p-6">
-              <div className="mb-4">
-                <h3 className="text-base font-bold text-slate-900">
+            <div className="p-8">
+              <div className="mb-5">
+                <h3 className="text-xl font-bold text-slate-900">
                   {DIAS_SEMANA_LONGO[diaSelecionado.getDay()]}, {diaSelecionado.getDate()} de {MESES[diaSelecionado.getMonth()]}
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-sm text-slate-500 mt-1">
                   {eventosDiaSelecionado.length === 0
                     ? 'Nenhum item neste dia'
                     : `${eventosDiaSelecionado.length} ${eventosDiaSelecionado.length === 1 ? 'item' : 'itens'} neste dia`}
                 </p>
               </div>
-              <div className="space-y-2 max-h-[480px] overflow-y-auto">
+              <div className="space-y-3 max-h-[560px] overflow-y-auto">
                 {eventosDiaSelecionado.map((e) => renderItemCard(e))}
               </div>
             </div>
@@ -396,28 +396,28 @@ export default function Calendar({ showNewEventButton = false }: CalendarProps) 
         ) : (
           /* Visão Semana */
           <div className="overflow-x-auto">
-            <div className="grid grid-cols-7 min-w-[900px]">
+            <div className="grid grid-cols-7 min-w-[1000px]">
               {diasSemanaAtual.map((d, idx) => {
                 const hoje = mesmoDia(d, new Date())
                 const evts = getEventosDoDia(d)
                 return (
-                  <div key={idx} className={`border-r last:border-r-0 border-slate-200 min-h-[420px] ${hoje ? 'bg-blue-50/40' : ''}`}>
-                    <div className="text-center py-3 border-b border-slate-200 sticky top-0 bg-white">
-                      <div className="text-[10px] font-bold text-slate-400">{DIAS_SEMANA_CURTO[idx] === 'S' && idx === 6 ? 'SÁB' : DIAS_SEMANA_LONGO[idx].toUpperCase()}</div>
-                      <div className={`text-sm mt-1 ${hoje ? 'inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white font-bold' : 'font-semibold text-slate-900'}`}>
+                  <div key={idx} className={`border-r last:border-r-0 border-slate-200 min-h-[480px] ${hoje ? 'bg-blue-50/40' : ''}`}>
+                    <div className="text-center py-4 border-b border-slate-200 sticky top-0 bg-white">
+                      <div className="text-xs font-bold text-slate-400">{DIAS_SEMANA_CURTO[idx] === 'S' && idx === 6 ? 'SÁB' : DIAS_SEMANA_LONGO[idx].toUpperCase()}</div>
+                      <div className={`text-base mt-1.5 ${hoje ? 'inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold' : 'font-semibold text-slate-900'}`}>
                         {d.getDate()}
                       </div>
                     </div>
-                    <div className="p-2 space-y-2">
+                    <div className="p-3 space-y-2.5">
                       {evts.map((e) => (
                         <button
                           key={e.id}
                           onClick={() => e.tipo !== 'tarefa' && showNewEventButton ? handleEditar(e) : setDiaSelecionado(d)}
-                          className="w-full text-left rounded-lg px-2 py-1.5"
+                          className="w-full text-left rounded-lg px-3 py-2"
                           style={{ backgroundColor: `${getCorEvento(e.cor)}1a` }}
                         >
-                          <div className="text-[10px] font-bold" style={{ color: getCorEvento(e.cor) }}>{e.hora || 'Dia inteiro'}</div>
-                          <div className="text-xs font-medium text-slate-800 leading-tight mt-0.5 break-words">{e.titulo}</div>
+                          <div className="text-xs font-bold" style={{ color: getCorEvento(e.cor) }}>{e.hora || 'Dia inteiro'}</div>
+                          <div className="text-sm font-medium text-slate-800 leading-tight mt-1 break-words">{e.titulo}</div>
                         </button>
                       ))}
                     </div>
