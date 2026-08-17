@@ -216,12 +216,6 @@ export default function RelatorioPreview({ relatorio, escritorio }: RelatorioPre
           </div>
         </div>
       </div>
-
-      {/* Rodapé */}
-      <div className="border-t border-gray-200 pt-6 text-center text-xs text-gray-600">
-        <p>Este é um documento gerado automaticamente pelo sistema UniConBR</p>
-        <p className="mt-2">Consulte um profissional habilitado para validar os dados</p>
-      </div>
     </div>
   )
 }

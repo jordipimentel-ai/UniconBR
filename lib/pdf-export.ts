@@ -23,7 +23,7 @@ export async function exportarElementoParaPDF(elementId: string, nomeArquivo: st
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-    const margem = 10
+    const margem = 5
     const larguraPagina = pdf.internal.pageSize.getWidth()
     const alturaPagina = pdf.internal.pageSize.getHeight()
     const larguraUtil = larguraPagina - margem * 2
