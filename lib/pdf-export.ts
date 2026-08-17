@@ -34,10 +34,7 @@ export async function exportarElementoParaPDF(elementId: string, nomeArquivo: st
     const imgHeight = (canvas.height * imgWidth) / canvas.width
 
     if (imgHeight <= alturaUtil) {
-      // Centraliza verticalmente quando o conteúdo é mais curto que a página,
-      // em vez de deixar tudo colado no topo com uma sobra grande embaixo
-      const posY = margem + (alturaUtil - imgHeight) / 2
-      pdf.addImage(imgData, 'PNG', margem, posY, imgWidth, imgHeight)
+      pdf.addImage(imgData, 'PNG', margem, margem, imgWidth, imgHeight)
     } else {
       // Limite de segurança: nunca gera um PDF gigante caso a altura
       // capturada esteja incorreta por algum motivo
