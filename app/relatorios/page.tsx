@@ -10,8 +10,34 @@ import DeclaracaoFaturamentoForm, { DeclaracaoFaturamentoData } from '@/componen
 import DeclaracaoFaturamentoPreview from '@/components/DeclaracaoFaturamentoPreview'
 import { extractPDFData, consolidarDados, FaturamentoMes } from '@/lib/pdf-processor'
 import { exportarElementoParaPDF } from '@/lib/pdf-export'
-import { mesAnoParaData, upsertRegistroFinanceiroMes } from '@/lib/registros-financeiros'
+import { mesAnoParaData, upsertRegistroFinanceiroMes, listarRegistrosFinanceiros } from '@/lib/registros-financeiros'
+import { getEscritorio, Escritorio } from '@/lib/escritorio'
 import SelectPill from '@/components/SelectPill'
+
+// Converte "YYYY-MM-01" (formato do banco) para "MM/AAAA" (formato usado no
+// histórico de faturamento dos relatórios)
+function mesReferenciaParaMesAno(mesReferencia: string): string {
+  const [y, m] = mesReferencia.split('-')
+  return `${m}/${y}`
+}
+
+// Gera a lista dos últimos `quantidade` meses (formato "MM/AAAA"), terminando
+// no mês do período do relatório, em ordem cronológica
+function gerarUltimosMeses(periodoAtual: string, quantidade: number): string[] {
+  const [mStr, yStr] = periodoAtual.split('/')
+  let m = parseInt(mStr, 10)
+  let y = parseInt(yStr, 10)
+  const meses: string[] = []
+  for (let i = 0; i < quantidade; i++) {
+    meses.unshift(`${String(m).padStart(2, '0')}/${y}`)
+    m -= 1
+    if (m === 0) {
+      m = 12
+      y -= 1
+    }
+  }
+  return meses
+}
 
 interface Cliente {
   id: string
@@ -56,6 +82,7 @@ export default function RelatoriosPage() {
   const [loading, setLoading] = useState(false)
   const [loadingClientes, setLoadingClientes] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [escritorio, setEscritorio] = useState<Escritorio | null>(null)
 
   useEffect(() => {
     async function loadClientes() {
@@ -72,6 +99,9 @@ export default function RelatoriosPage() {
           .order('nome_razao_social')
 
         if (data) setClientes(data)
+
+        const { data: escritorioData } = await getEscritorio()
+        setEscritorio(escritorioData)
       } catch (err) {
         console.error('Erro ao carregar clientes:', err)
       } finally {
@@ -130,9 +160,27 @@ export default function RelatoriosPage() {
     const aliquota = revisao.faturamento > 0 ? (revisao.impostos / revisao.faturamento) * 100 : 0
 
     // Se o faturamento foi ajustado na revisão, reflete isso no mês atual do histórico
-    const historicoAtualizado = revisao.historicoFaturamento.map((item) =>
+    let historicoAtualizado = revisao.historicoFaturamento.map((item) =>
       item.mes === periodoStr ? { ...item, valor: revisao.faturamento } : item
     )
+
+    // Para relatório mensal, sempre mostra os últimos 3 meses: usa o que veio
+    // do PDF anexado e completa os meses faltantes com o histórico financeiro
+    // já salvo do cliente (registros de relatórios anteriores)
+    if (periodo === 'mes') {
+      const { data: registros } = await listarRegistrosFinanceiros(clienteSelecionado)
+      const registrosMap = new Map(
+        registros
+          .filter((r) => r.faturamento)
+          .map((r) => [mesReferenciaParaMesAno(r.mes_referencia), r.faturamento as number])
+      )
+      const pdfMap = new Map(historicoAtualizado.map((h) => [h.mes, h.valor]))
+
+      historicoAtualizado = gerarUltimosMeses(periodoStr, 3).map((mes) => ({
+        mes,
+        valor: pdfMap.get(mes) || registrosMap.get(mes) || 0,
+      }))
+    }
 
     setRelatorio({
       cliente: clienteNome,
@@ -409,7 +457,7 @@ export default function RelatoriosPage() {
                     ← Voltar
                   </button>
                 </div>
-                <RelatorioPreview relatorio={relatorio} />
+                <RelatorioPreview relatorio={relatorio} escritorio={escritorio} />
               </div>
             )}
             </>

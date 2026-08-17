@@ -1,3 +1,5 @@
+import { Escritorio } from '@/lib/escritorio'
+
 interface FaturamentoMes {
   mes: string
   valor: number
@@ -16,9 +18,10 @@ interface RelatorioPreviewProps {
     historicoFaturamento?: FaturamentoMes[]
     detalhes: any
   }
+  escritorio?: Escritorio | null
 }
 
-export default function RelatorioPreview({ relatorio }: RelatorioPreviewProps) {
+export default function RelatorioPreview({ relatorio, escritorio }: RelatorioPreviewProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -46,9 +49,15 @@ export default function RelatorioPreview({ relatorio }: RelatorioPreviewProps) {
       {/* Cabeçalho */}
       <div className="border-b-2 border-gray-200 pb-6">
         <div className="flex justify-between items-start mb-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">UniConBR</h2>
-            <p className="text-gray-600">Gestão de Escritório</p>
+          <div className="flex items-center gap-3">
+            {escritorio?.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={escritorio.logo_url} alt="Logo" className="h-14 w-14 object-contain rounded" />
+            )}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{escritorio?.nome || 'UniConBR'}</h2>
+              <p className="text-gray-600">{escritorio?.nome ? 'Gestão Financeira' : 'Gestão de Escritório'}</p>
+            </div>
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-600">Data de Geração</p>
