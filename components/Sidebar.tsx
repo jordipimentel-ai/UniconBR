@@ -10,15 +10,13 @@ interface MenuItem {
   href: string
   label: string
   icon: string
-  permission?: string // nome da permissão necessária, se vazio permite todos
+  adminOnly?: boolean
 }
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
-  const [userPermissions, setUserPermissions] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadUserData() {
@@ -26,33 +24,15 @@ export default function Sidebar() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        // Verificar se é admin
         const { data: userData } = await supabase
           .from('users')
           .select('role')
           .eq('id', user.id)
           .single()
 
-        if (userData?.role === 'admin') {
-          setIsAdmin(true)
-          setLoading(false)
-          return
-        }
-
-        // Carregar permissões do usuário
-        const { data: permissions } = await supabase
-          .from('user_permissoes')
-          .select('permissoes(nome)')
-          .eq('user_id', user.id)
-
-        if (permissions) {
-          const permNames = permissions.map((p: any) => p.permissoes?.nome || '').filter(Boolean)
-          setUserPermissions(permNames)
-        }
+        setIsAdmin(userData?.role === 'admin')
       } catch (error) {
-        console.error('Erro ao carregar permissões:', error)
-      } finally {
-        setLoading(false)
+        console.error('Erro ao carregar usuário:', error)
       }
     }
 
@@ -60,25 +40,17 @@ export default function Sidebar() {
   }, [])
 
   const menuItems: MenuItem[] = [
-    { href: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { href: '/clientes', label: 'Clientes', icon: '👥', permission: 'clientes' },
-    { href: '/processos', label: 'Processos', icon: '📋', permission: 'processos' },
-    { href: '/tarefas', label: 'Tarefas', icon: '✓', permission: 'tarefas' },
-    { href: '/calendario', label: 'Calendário', icon: '📅', permission: 'calendario' },
-    { href: '/relatorios', label: 'Relatórios', icon: '📈', permission: 'relatorios' },
-    { href: '/contratos', label: 'Contratos', icon: '📝', permission: 'contratos' },
-    { href: '/financeiro', label: 'Financeiro', icon: '💰', permission: 'cobrancas' },
-    { href: '/usuarios', label: 'Usuários', icon: '👤', permission: 'usuarios' },
-    { href: '/escritorio', label: 'Meu Escritório', icon: '🏢', permission: 'escritorio' },
+    { href: '/tarefas', label: 'Tarefas', icon: '✓' },
+    { href: '/dashboard', label: 'Dashboard', icon: '📊', adminOnly: true },
+    { href: '/clientes', label: 'Clientes', icon: '👥' },
+    { href: '/processos', label: 'Processos', icon: '📋' },
+    { href: '/calendario', label: 'Calendário', icon: '📅' },
+    { href: '/relatorios', label: 'Relatórios', icon: '📈' },
+    { href: '/contratos', label: 'Contratos', icon: '📝' },
+    { href: '/financeiro', label: 'Financeiro', icon: '💰', adminOnly: true },
+    { href: '/usuarios', label: 'Usuários', icon: '👤', adminOnly: true },
+    { href: '/escritorio', label: 'Meu Escritório', icon: '🏢', adminOnly: true },
   ]
-
-  function hasPermission(permission?: string): boolean {
-    if (!permission) return true // menu sem permissão requerida
-    if (isAdmin) return true // admin pode acessar tudo
-    return userPermissions.some(p =>
-      p.toLowerCase().replace(/[_\s]/g, '') === permission.toLowerCase().replace(/[_\s]/g, '')
-    )
-  }
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -96,7 +68,7 @@ export default function Sidebar() {
       {/* Menu Items */}
       <nav className="flex-1 px-3 py-6 space-y-1">
         {menuItems.map((item) => {
-          if (!hasPermission(item.permission)) {
+          if (item.adminOnly && !isAdmin) {
             return null
           }
           const isActive = pathname === item.href

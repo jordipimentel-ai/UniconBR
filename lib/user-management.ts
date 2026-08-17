@@ -15,7 +15,7 @@ export async function createUser(
   email: string,
   password: string,
   nomeCompleto: string,
-  role: 'admin' | 'colaborador'
+  role: 'admin' | 'financeiro' | 'rh'
 ) {
   try {
     // Criar no Auth
@@ -100,7 +100,7 @@ export async function updateUser(
   userId: string,
   updates: {
     nome_completo?: string
-    role?: 'admin' | 'colaborador'
+    role?: 'admin' | 'financeiro' | 'rh'
   }
 ) {
   try {

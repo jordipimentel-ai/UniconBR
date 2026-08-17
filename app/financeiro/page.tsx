@@ -71,6 +71,7 @@ export default function FinanceiroPage() {
   const [filtroCompetencia, setFiltroCompetencia] = useState<'todos' | string>('todos')
   const [filtroContratoAtivo, setFiltroContratoAtivo] = useState(true)
   const [subAbaLancamentos, setSubAbaLancamentos] = useState<'Receitas' | 'Despesas'>('Receitas')
+  const [acessoNegado, setAcessoNegado] = useState(false)
 
   async function carregarTudo() {
     const [{ data: contratosData }, { data: cobrancasData }, { data: despesasData }, { data: lancamentosData }] = await Promise.all([
@@ -90,6 +91,18 @@ export default function FinanceiroPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/auth')
+        return
+      }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (userData?.role !== 'admin') {
+        setAcessoNegado(true)
+        setTimeout(() => router.push('/tarefas'), 2000)
         return
       }
 
@@ -146,6 +159,20 @@ export default function FinanceiroPage() {
     (filtroStatus === 'todos' || c.status === filtroStatus) &&
     (filtroCompetencia === 'todos' || c.competencia === filtroCompetencia)
   )
+
+  if (acessoNegado) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Sidebar />
+        <div className="ml-64 flex items-center justify-center h-screen">
+          <div className="text-center">
+            <p className="text-red-600 font-semibold mb-2">Acesso negado</p>
+            <p className="text-gray-600">Apenas administradores podem acessar o Financeiro</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

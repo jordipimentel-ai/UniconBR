@@ -13,7 +13,7 @@ export default function Home() {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {
-        router.push('/dashboard')
+        router.push('/tarefas')
       } else {
         router.push('/auth')
       }

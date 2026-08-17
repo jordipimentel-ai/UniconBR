@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import Calendar from '@/components/Calendar'
+import { formatMoeda } from '@/lib/contratos'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -21,7 +22,14 @@ export default function DashboardPage() {
     tarefasMedia: 0,
     tarefasBaixa: 0,
   })
+  const [financeiro, setFinanceiro] = useState({
+    aReceberMes: 0,
+    recebidoMes: 0,
+    aPagarMes: 0,
+    pagoMes: 0,
+  })
   const [loading, setLoading] = useState(true)
+  const [acessoNegado, setAcessoNegado] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -31,6 +39,19 @@ export default function DashboardPage() {
         router.push('/auth')
         return
       }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', currentUser.id)
+        .single()
+
+      if (userData?.role !== 'admin') {
+        setAcessoNegado(true)
+        setTimeout(() => router.push('/tarefas'), 2000)
+        return
+      }
+
       setUser(currentUser)
 
       // Carregar estatísticas básicas
@@ -75,6 +96,34 @@ export default function DashboardPage() {
         tarefasBaixa,
       })
 
+      // Resumo financeiro do mês atual (cobranças + lançamentos avulsos + despesas)
+      const inicioMes = new Date()
+      inicioMes.setDate(1)
+      const inicioMesStr = inicioMes.toISOString().slice(0, 10)
+      const fimMesStr = new Date(inicioMes.getFullYear(), inicioMes.getMonth() + 1, 0).toISOString().slice(0, 10)
+
+      const [cobrancasRes, lancamentosRes, despesasRes] = await Promise.all([
+        supabase.from('cobrancas').select('valor, status, vencimento').gte('vencimento', inicioMesStr).lte('vencimento', fimMesStr),
+        supabase.from('lancamentos_receita').select('valor, status, vencimento').gte('vencimento', inicioMesStr).lte('vencimento', fimMesStr),
+        supabase.from('despesas').select('valor, status, vencimento').gte('vencimento', inicioMesStr).lte('vencimento', fimMesStr),
+      ])
+
+      let aReceberMes = 0
+      let recebidoMes = 0
+      ;[...(cobrancasRes.data || []), ...(lancamentosRes.data || [])].forEach((r: any) => {
+        if (r.status === 'pago') recebidoMes += r.valor || 0
+        else if (r.status === 'pendente' || r.status === 'atrasado') aReceberMes += r.valor || 0
+      })
+
+      let aPagarMes = 0
+      let pagoMes = 0
+      ;(despesasRes.data || []).forEach((d: any) => {
+        if (d.status === 'pago') pagoMes += d.valor || 0
+        else if (d.status === 'pendente' || d.status === 'atrasado') aPagarMes += d.valor || 0
+      })
+
+      setFinanceiro({ aReceberMes, recebidoMes, aPagarMes, pagoMes })
+
       setLoading(false)
     }
 
@@ -84,6 +133,20 @@ export default function DashboardPage() {
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/auth')
+  }
+
+  if (acessoNegado) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Sidebar />
+        <div className="ml-64 flex items-center justify-center h-screen">
+          <div className="text-center">
+            <p className="text-red-600 font-semibold mb-2">Acesso negado</p>
+            <p className="text-gray-600">Apenas administradores podem acessar o Dashboard</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
@@ -162,6 +225,27 @@ export default function DashboardPage() {
                 <span className="text-3xl">✓</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Resumo Financeiro do Mês */}
+        <h3 className="text-xl font-bold text-slate-900 mb-6">Financeiro (mês atual)</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <p className="text-slate-600 text-sm font-medium uppercase tracking-wide">A Receber</p>
+            <p className="text-2xl font-bold text-blue-600 mt-2">{formatMoeda(financeiro.aReceberMes)}</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <p className="text-slate-600 text-sm font-medium uppercase tracking-wide">Recebido</p>
+            <p className="text-2xl font-bold text-green-600 mt-2">{formatMoeda(financeiro.recebidoMes)}</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <p className="text-slate-600 text-sm font-medium uppercase tracking-wide">A Pagar</p>
+            <p className="text-2xl font-bold text-orange-600 mt-2">{formatMoeda(financeiro.aPagarMes)}</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <p className="text-slate-600 text-sm font-medium uppercase tracking-wide">Pago</p>
+            <p className="text-2xl font-bold text-red-600 mt-2">{formatMoeda(financeiro.pagoMes)}</p>
           </div>
         </div>
 

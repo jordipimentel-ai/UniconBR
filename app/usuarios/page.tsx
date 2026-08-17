@@ -12,7 +12,7 @@ interface User {
   id: string
   email: string
   nome_completo: string
-  role: 'admin' | 'colaborador'
+  role: 'admin' | 'financeiro' | 'rh'
   ativo: boolean
   criado_em: string
   avatar_url?: string
@@ -51,7 +51,7 @@ export default function UsuariosPage() {
         if (userError || userData?.role !== 'admin') {
           console.log('Usuário não é admin')
           setErrorMsg('Acesso negado - você não é admin')
-          setTimeout(() => router.push('/dashboard'), 2000)
+          setTimeout(() => router.push('/tarefas'), 2000)
           return
         }
 
@@ -257,10 +257,12 @@ export default function UsuariosPage() {
                           className={`px-3 py-1 text-xs font-semibold rounded-full ${
                             usuario.role === 'admin'
                               ? 'bg-red-100 text-red-800'
-                              : 'bg-blue-100 text-blue-800'
+                              : usuario.role === 'financeiro'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-purple-100 text-purple-800'
                           }`}
                         >
-                          {usuario.role === 'admin' ? 'Admin' : 'Colaborador'}
+                          {usuario.role === 'admin' ? 'Administrador' : usuario.role === 'financeiro' ? 'Financeiro' : 'RH'}
                         </span>
                       </td>
                       <td className="px-6 py-4">

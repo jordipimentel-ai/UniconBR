@@ -1,15 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState } from 'react'
 import { generateRandomPassword } from '@/lib/user-management'
+import { supabase } from '@/lib/supabase'
 import SelectPill from '@/components/SelectPill'
-
-interface Permission {
-  id: string
-  nome: string
-  descricao?: string
-}
 
 interface NovoUsuarioModalProps {
   onClose: () => void
@@ -20,64 +14,15 @@ export default function NovoUsuarioModal({ onClose, onUserCreated }: NovoUsuario
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
-  const [permissions, setPermissions] = useState<Permission[]>([])
-  const [loadingPermissions, setLoadingPermissions] = useState(true)
-  const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set())
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [formData, setFormData] = useState({
     nome_completo: '',
     email: '',
-    role: 'colaborador' as 'admin' | 'colaborador',
+    role: 'financeiro' as 'admin' | 'financeiro' | 'rh',
     password: generateRandomPassword(),
   })
-
-  useEffect(() => {
-    async function loadPermissions() {
-      try {
-        const { data, error } = await supabase
-          .from('permissoes')
-          .select('*')
-          .order('nome', { ascending: true })
-
-        if (!error && data) {
-          setPermissions(data)
-          // Se for admin, marcar todas as permissões
-          if (formData.role === 'admin') {
-            setSelectedPermissions(new Set(data.map((p) => p.id)))
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao carregar permissões:', err)
-      } finally {
-        setLoadingPermissions(false)
-      }
-    }
-
-    loadPermissions()
-  }, [])
-
-  function handleRoleChange(newRole: 'admin' | 'colaborador') {
-    setFormData({ ...formData, role: newRole })
-
-    // Se for admin, marcar todas as permissões
-    if (newRole === 'admin') {
-      setSelectedPermissions(new Set(permissions.map((p) => p.id)))
-    } else {
-      setSelectedPermissions(new Set())
-    }
-  }
-
-  function togglePermission(permissionId: string) {
-    const newSelected = new Set(selectedPermissions)
-    if (newSelected.has(permissionId)) {
-      newSelected.delete(permissionId)
-    } else {
-      newSelected.add(permissionId)
-    }
-    setSelectedPermissions(newSelected)
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -95,7 +40,6 @@ export default function NovoUsuarioModal({ onClose, onUserCreated }: NovoUsuario
           password: formData.password,
           nome_completo: formData.nome_completo,
           role: formData.role,
-          permissions: Array.from(selectedPermissions),
         }),
       })
 
@@ -234,57 +178,19 @@ export default function NovoUsuarioModal({ onClose, onUserCreated }: NovoUsuario
             </label>
             <SelectPill
               value={formData.role}
-              onChange={(v) => handleRoleChange(v as 'admin' | 'colaborador')}
+              onChange={(v) => setFormData({ ...formData, role: v as 'admin' | 'financeiro' | 'rh' })}
               options={[
-                { value: 'colaborador', label: 'Colaborador' },
-                { value: 'admin', label: 'Admin' },
+                { value: 'admin', label: 'Administrador' },
+                { value: 'financeiro', label: 'Financeiro' },
+                { value: 'rh', label: 'RH' },
               ]}
             />
+            <p className="text-xs text-gray-600 mt-1">
+              {formData.role === 'admin'
+                ? 'Administrador tem acesso a Financeiro, Usuários e Meu Escritório, além do restante do sistema.'
+                : 'Terá acesso a todo o sistema, exceto Financeiro, Usuários e Meu Escritório.'}
+            </p>
           </div>
-
-          {/* Permissões */}
-          {!loadingPermissions && formData.role === 'colaborador' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Permissões
-              </label>
-              <div className="space-y-2 border border-gray-300 rounded-lg p-3 bg-gray-50 max-h-40 overflow-y-auto">
-                {permissions.length === 0 ? (
-                  <p className="text-sm text-gray-600">Nenhuma permissão disponível</p>
-                ) : (
-                  permissions.map((perm) => (
-                    <label
-                      key={perm.id}
-                      className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedPermissions.has(perm.id)}
-                        onChange={() => togglePermission(perm.id)}
-                        className="w-4 h-4 rounded border-gray-300"
-                      />
-                      <span className="text-sm font-medium text-gray-900">
-                        {perm.nome.replace(/_/g, ' ')}
-                      </span>
-                    </label>
-                  ))
-                )}
-              </div>
-              <p className="text-xs text-gray-600 mt-1">
-                {formData.role === 'admin'
-                  ? 'Admin tem acesso a todas as permissões'
-                  : 'Selecione as permissões para este colaborador'}
-              </p>
-            </div>
-          )}
-
-          {!loadingPermissions && formData.role === 'admin' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-900">
-                ✓ Admin terá acesso a todas as {permissions.length} permissões
-              </p>
-            </div>
-          )}
 
           {/* Avatar */}
           <div>

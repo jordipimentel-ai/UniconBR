@@ -2,7 +2,7 @@
 
 import { createClient } from './supabase-client'
 
-export async function signUp(email: string, password: string, nomeCompleto: string, role: 'admin' | 'colaborador') {
+export async function signUp(email: string, password: string, nomeCompleto: string, role: 'admin' | 'financeiro' | 'rh') {
   try {
     const supabase = createClient()
     const { data, error } = await supabase.auth.signUp({

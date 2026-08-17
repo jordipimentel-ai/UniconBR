@@ -25,12 +25,25 @@ export default function EscritorioPage() {
     cidade: '',
   })
   const [contadores, setContadores] = useState<ContadorResponsavel[]>([{ nome: '', crc: '' }])
+  const [acessoNegado, setAcessoNegado] = useState(false)
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/auth')
+        return
+      }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (userData?.role !== 'admin') {
+        setAcessoNegado(true)
+        setTimeout(() => router.push('/tarefas'), 2000)
         return
       }
 
@@ -112,6 +125,20 @@ export default function EscritorioPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  if (acessoNegado) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Sidebar />
+        <div className="ml-64 flex items-center justify-center h-screen">
+          <div className="text-center">
+            <p className="text-red-600 font-semibold mb-2">Acesso negado</p>
+            <p className="text-gray-600">Apenas administradores podem acessar o Meu Escritório</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
